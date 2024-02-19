@@ -1,0 +1,48 @@
+---
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: serverscom-ingress-controller
+    dir: ./cmd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    binary: serverscom-ingress-controller
+    ldflags:
+      - "-s -w -X main.version={{ if not .IsSnapshot }}v{{ end }}{{ .Version }} -X main.gitCommit={{ .ShortCommit }}"
+
+dockers:
+  - build_flag_templates: [--platform=linux/amd64]
+    dockerfile: Dockerfile
+    goarch: amd64
+    image_templates: ["ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-amd64"]
+    use: buildx
+  - build_flag_templates: [--platform=linux/arm64]
+    dockerfile: Dockerfile
+    goarch: arm64
+    image_templates: ["ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-arm64v8"]
+    use: buildx
+  - build_flag_templates: [--platform=linux/arm/v6]
+    dockerfile: Dockerfile
+    goarch: arm
+    goarm: 6
+    image_templates: ["ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-armv6"]
+
+docker_manifests:
+  - name_template: ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}
+    image_templates:
+      - ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-amd64
+      - ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-arm64v8
+      - ghcr.io/serverscom/serverscom-ingress-controller:{{ if not .IsSnapshot }}v{{ end }}{{ .Version }}-armv6
+
+release:
+  ids: [""]
+  draft: true
+  extra_files:
+    - glob: "./serverscom-ingress-controller-*.tgz"
