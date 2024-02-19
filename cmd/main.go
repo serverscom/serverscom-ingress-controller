@@ -54,6 +54,7 @@ func main() {
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
+	serverscomClient.SetupUserAgent(fmt.Sprintf("serverscom-ingress-controller/%s %s", version, gitCommit))
 
 	ic := controller.NewIngressController(conf, serverscomClient)
 
