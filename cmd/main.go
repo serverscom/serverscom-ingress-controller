@@ -86,7 +86,7 @@ func main() {
 				klog.Infof("%s starts leading", id)
 				stopCh := make(chan struct{})
 				defer close(stopCh)
-				handleSigterm(ic, 5)
+				go handleSigterm(ic, 5)
 				ic.Run(stopCh)
 			},
 			OnStoppedLeading: func() {
