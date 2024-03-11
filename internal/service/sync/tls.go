@@ -6,7 +6,6 @@ import (
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/tls"
 	v1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
-	"k8s.io/klog/v2"
 )
 
 // SyncTLS syncs ingress tls certs stored in secrets to portal.
@@ -18,8 +17,7 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, er
 		sKey := ingress.Namespace + "/" + intls.SecretName
 		secret, err := s.store.GetSecret(sKey)
 		if err != nil {
-			klog.Errorf("Fetching secret with key %s from store failed: %v", sKey, err)
-			return nil, err
+			return nil, fmt.Errorf("fetching secret with key %s from store failed: %v", sKey, err)
 		}
 		cert, ok := secret.Data[v1.TLSCertKey]
 		if !ok {

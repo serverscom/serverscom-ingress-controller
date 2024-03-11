@@ -209,8 +209,7 @@ func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[
 		UpstreamZones: upstreamZones,
 		VHostZones:    vhostZones,
 	}
-	// regions :=
-	lbInput = annotations.FillLBWithIngressAnnotations(lbInput, ingress.Annotations)
+	lbInput, err = annotations.FillLBWithIngressAnnotations(m.client, lbInput, ingress.Annotations)
 
-	return lbInput, nil
+	return lbInput, err
 }

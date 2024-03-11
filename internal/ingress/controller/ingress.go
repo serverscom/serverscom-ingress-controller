@@ -144,7 +144,7 @@ func (ic *IngressController) handleErr(err error, key interface{}) {
 
 	// retries 2 times
 	if ic.queue.NumRequeues(key) < 2 {
-		klog.Infof("Error syncing ingress %v: %v", key, err)
+		klog.Errorf("Error syncing ingress %v: %v", key, err)
 
 		// re-enqueue the key rate limited
 		ic.queue.AddRateLimited(key)

@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"fmt"
+
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/loadbalancer"
@@ -44,11 +46,9 @@ func (s *SyncManager) CleanupLBs(ingressClass string) error {
 		if _, exists := validLBs[lbID]; !exists {
 			err := s.lb.DeleteLoadBalancer(lbID)
 			if err != nil {
-				klog.Errorf("failed to delete Load Balancer %s: %v", lbID, err)
-				return err
-			} else {
-				klog.V(2).Infof("successfully deleted Load Balancer %s", lbID)
+				return fmt.Errorf("failed to delete Load Balancer %s: %v", lbID, err)
 			}
+			klog.V(2).Infof("successfully deleted Load Balancer %s", lbID)
 		}
 	}
 	return nil

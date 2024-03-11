@@ -191,7 +191,7 @@ func New(
 			addIng := obj.(*networkv1.Ingress)
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err != nil {
-				recorder.Eventf(addIng, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+				recorder.Eventf(addIng, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
 			if !ingress.IsScIngress(addIng, ingressClass) {
@@ -199,7 +199,7 @@ func New(
 				return
 			}
 			klog.V(3).Infof("Ingress %v added, enqueuing", key)
-			recorder.Eventf(addIng, corev1.EventTypeNormal, "ADD", key)
+			recorder.Eventf(addIng, corev1.EventTypeNormal, "CreateScheduled", key)
 			queue.Add(key)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -209,14 +209,14 @@ func New(
 				return
 			}
 			key, err := cache.MetaNamespaceKeyFunc(newObj)
-			if err == nil {
-				recorder.Eventf(newIng, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+			if err != nil {
+				recorder.Eventf(newIng, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
 			if !ingress.IsScIngress(newIng, ingressClass) {
 				if ingress.IsScIngress(oldIng, ingressClass) {
 					klog.V(4).Infof("Ingress %v class was changed, enqueuing", key)
-					recorder.Eventf(newIng, corev1.EventTypeNormal, "UPDATE", key)
+					recorder.Eventf(newIng, corev1.EventTypeNormal, "UpdateScheduled", key)
 					queue.Add(key)
 				}
 			}
@@ -225,7 +225,7 @@ func New(
 			delIng := obj.(*networkv1.Ingress)
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err != nil {
-				recorder.Eventf(delIng, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+				recorder.Eventf(delIng, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
 			if !ingress.IsScIngress(delIng, ingressClass) {
@@ -233,7 +233,7 @@ func New(
 				return
 			}
 			klog.V(3).Infof("Ingress %v deleted, enqueueing", key)
-			recorder.Eventf(delIng, corev1.EventTypeNormal, "DELETE", key)
+			recorder.Eventf(delIng, corev1.EventTypeNormal, "DeleteScheduled", key)
 			queue.Add(key)
 		},
 	})
@@ -248,12 +248,12 @@ func New(
 			}
 			ingresses, err := store.informers.Ingress.GetIndexer().ByIndex("byService", newSrv.Name)
 			if err != nil {
-				recorder.Eventf(newSrv, corev1.EventTypeWarning, "GET INGRESSES", err.Error())
+				recorder.Eventf(newSrv, corev1.EventTypeWarning, "GetIndexerFailed", err.Error())
 				return
 			}
 			sKey, err := cache.MetaNamespaceKeyFunc(newObj)
 			if err != nil {
-				recorder.Eventf(newSrv, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+				recorder.Eventf(newSrv, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
 
@@ -261,11 +261,11 @@ func New(
 				ingress := ingressObj.(*networkv1.Ingress)
 				iKey, err := cache.MetaNamespaceKeyFunc(ingressObj)
 				if err != nil {
-					recorder.Eventf(ingress, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+					recorder.Eventf(ingress, corev1.EventTypeWarning, "CacheKey", err.Error())
 					return
 				}
 				klog.V(4).Infof("Service %v was changed, enqueuing associated ingress %v", sKey, iKey)
-				recorder.Eventf(ingress, corev1.EventTypeNormal, "UPDATE", iKey)
+				recorder.Eventf(ingress, corev1.EventTypeNormal, "UpdateScheduled", iKey)
 				queue.Add(iKey)
 			}
 		},
@@ -281,23 +281,23 @@ func New(
 			}
 			ingresses, err := store.informers.Ingress.GetIndexer().ByIndex("bySecret", newSec.Name)
 			if err != nil {
-				recorder.Eventf(newSec, corev1.EventTypeWarning, "GET INGRESSES", err.Error())
+				recorder.Eventf(newSec, corev1.EventTypeWarning, "GetIndexerFailed", err.Error())
 				return
 			}
 			sKey, err := cache.MetaNamespaceKeyFunc(newObj)
 			if err != nil {
-				recorder.Eventf(newSec, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+				recorder.Eventf(newSec, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
 			for _, ingressObj := range ingresses {
 				ingress := ingressObj.(*networkv1.Ingress)
 				iKey, err := cache.MetaNamespaceKeyFunc(ingressObj)
 				if err != nil {
-					recorder.Eventf(ingress, corev1.EventTypeWarning, "CACHE KEY", err.Error())
+					recorder.Eventf(ingress, corev1.EventTypeWarning, "CacheKey", err.Error())
 					return
 				}
 				klog.V(4).Infof("Secret %v was changed, enqueuing associated ingress %v", sKey, iKey)
-				recorder.Eventf(ingress, corev1.EventTypeNormal, "UPDATE", iKey)
+				recorder.Eventf(ingress, corev1.EventTypeNormal, "UpdateScheduled", iKey)
 				queue.Add(iKey)
 			}
 		},
