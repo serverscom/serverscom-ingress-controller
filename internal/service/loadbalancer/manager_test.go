@@ -52,7 +52,10 @@ func TestNewLoadBalancer(t *testing.T) {
 	startedTime := time.Now()
 	expectedL7LB := &serverscom.L7LoadBalancer{ID: lbID, Name: lbName}
 
-	manager := NewManager(lbHandler, nil)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.LoadBalancers = lbHandler
+
+	manager := NewManager(client, nil)
 	t.Run("Load balancer already exists", func(t *testing.T) {
 		g := NewWithT(t)
 
@@ -114,7 +117,10 @@ func TestUpdateLoadBalancer(t *testing.T) {
 	expectedL7LB := &serverscom.L7LoadBalancer{ID: lbID, Name: lbName}
 	lbL7UpdateInput := &serverscom.L7LoadBalancerUpdateInput{Name: lbName}
 
-	manager := NewManager(lbHandler, nil)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.LoadBalancers = lbHandler
+
+	manager := NewManager(client, nil)
 	manager.resources[lbName] = &LoadBalancer{
 		id:           lbID,
 		state:        expectedL7LB,
@@ -178,7 +184,9 @@ func TestDeleteLoadBalancer(t *testing.T) {
 	lbID := "test-id"
 	expectedL7LB := &serverscom.L7LoadBalancer{ID: lbID, Name: lbName}
 
-	manager := NewManager(lbHandler, nil)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.LoadBalancers = lbHandler
+	manager := NewManager(client, nil)
 	manager.resources[lbName] = &LoadBalancer{
 		id:        lbID,
 		state:     expectedL7LB,
@@ -255,9 +263,11 @@ func TestTranslateIngressToLB(t *testing.T) {
 	}
 
 	storeHandler := mocks.NewMockStorer(mockCtrl)
-	lbServiceHandler := mocks.NewMockLoadBalancersService(mockCtrl)
+	lbHandler := mocks.NewMockLoadBalancersService(mockCtrl)
 
-	manager := NewManager(lbServiceHandler, storeHandler)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.LoadBalancers = lbHandler
+	manager := NewManager(client, storeHandler)
 
 	t.Run("Translate ingress to lb input successfully", func(t *testing.T) {
 		g := NewWithT(t)

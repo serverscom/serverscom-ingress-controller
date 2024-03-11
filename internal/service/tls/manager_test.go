@@ -53,7 +53,9 @@ func TestSyncCertificate(t *testing.T) {
 	newCert := serverscom.SSLCertificateCustom{Sha1Fingerprint: newFingerprint}
 	startTime := time.Now()
 
-	manager := NewManager(sslHandler, nil)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.SSLCertificates = sslHandler
+	manager := NewManager(client, nil)
 
 	t.Run("Can't get ssl certs list", func(t *testing.T) {
 		g := NewWithT(t)

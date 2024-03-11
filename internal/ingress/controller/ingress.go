@@ -73,8 +73,8 @@ func NewIngressController(config *Configuration, client *serverscom.Client) *Ing
 		ic.recorder,
 		ic.queue,
 	)
-	tlsManager := tls.NewManager(client.SSLCertificates, ic.store)
-	lbManager := loadbalancer.NewManager(client.LoadBalancers, ic.store)
+	tlsManager := tls.NewManager(client, ic.store)
+	lbManager := loadbalancer.NewManager(client, ic.store)
 	ic.service = service.New(
 		client,
 		tlsManager,

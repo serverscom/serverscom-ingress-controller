@@ -8,7 +8,7 @@ import (
 
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
 
-	client "github.com/serverscom/serverscom-go-client/pkg"
+	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 )
 
 //go:generate mockgen --destination ../../mocks/tls_manager.go --package=mocks --source manager.go
@@ -16,51 +16,51 @@ import (
 // ManagerInterface describes an interface to manage SSL certs
 type TLSManagerInterface interface {
 	HasRegistration(fingerprint string) bool
-	SyncCertificate(fingerprint, name string, cert, key, chain []byte) (*client.SSLCertificate, error)
-	Get(fingerprint string) (*client.SSLCertificate, error)
+	SyncCertificate(fingerprint, name string, cert, key, chain []byte) (*serverscom.SSLCertificate, error)
+	Get(fingerprint string) (*serverscom.SSLCertificate, error)
 }
 
 // Manager represents a TLS manager
 type Manager struct {
 	resources map[string]*SslCertificate
 
-	lock       sync.Mutex
-	sslService client.SSLCertificatesService
-	store      store.Storer
+	lock   sync.Mutex
+	client *serverscom.Client
+	store  store.Storer
 }
 
 // SslCertificate represents an ssl cert object for manager
 type SslCertificate struct {
-	state       *client.SSLCertificate
+	state       *serverscom.SSLCertificate
 	lastRefresh time.Time
 }
 
 // NewManager creates a new TLS manager
-func NewManager(sslService client.SSLCertificatesService, store store.Storer) *Manager {
+func NewManager(client *serverscom.Client, store store.Storer) *Manager {
 	return &Manager{
-		resources:  make(map[string]*SslCertificate),
-		sslService: sslService,
-		store:      store,
+		resources: make(map[string]*SslCertificate),
+		client:    client,
+		store:     store,
 	}
 }
 
 // HasRegistration checks if TLS manager has an ssl with specified fingerprint
-func (col *Manager) HasRegistration(fingerprint string) bool {
-	col.lock.Lock()
-	defer col.lock.Unlock()
+func (m *Manager) HasRegistration(fingerprint string) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	_, ok := col.resources[fingerprint]
+	_, ok := m.resources[fingerprint]
 	return ok
 }
 
 // SyncCertificate creates an ssl in portal and add it to manager or update it in manager it it already exists in portal
-func (col *Manager) SyncCertificate(fingerprint, name string, cert, key, chain []byte) (*client.SSLCertificate, error) {
-	col.lock.Lock()
-	defer col.lock.Unlock()
+func (m *Manager) SyncCertificate(fingerprint, name string, cert, key, chain []byte) (*serverscom.SSLCertificate, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
 	var sslCertificate SslCertificate
 
-	list, err := col.sslService.
+	list, err := m.client.SSLCertificates.
 		Collection().
 		SetParam("search_pattern", fingerprint).
 		SetParam("type", "custom").
@@ -82,12 +82,12 @@ func (col *Manager) SyncCertificate(fingerprint, name string, cert, key, chain [
 	}
 
 	if sslCertificate.state != nil {
-		col.resources[fingerprint] = &sslCertificate
+		m.resources[fingerprint] = &sslCertificate
 
 		return sslCertificate.state, nil
 	}
 
-	newInput := client.SSLCertificateCreateCustomInput{}
+	newInput := serverscom.SSLCertificateCreateCustomInput{}
 	newInput.Name = name
 	newInput.PublicKey = string(cert)
 	newInput.PrivateKey = string(key)
@@ -96,26 +96,26 @@ func (col *Manager) SyncCertificate(fingerprint, name string, cert, key, chain [
 		newInput.ChainKey = string(chain)
 	}
 
-	state, err := col.sslService.CreateCustom(context.Background(), newInput)
+	state, err := m.client.SSLCertificates.CreateCustom(context.Background(), newInput)
 
 	if err != nil {
 		return nil, err
 	}
 
-	sslCertificate.state = (*client.SSLCertificate)(state)
+	sslCertificate.state = (*serverscom.SSLCertificate)(state)
 	sslCertificate.lastRefresh = time.Now()
 
-	col.resources[fingerprint] = &sslCertificate
+	m.resources[fingerprint] = &sslCertificate
 
-	return (*client.SSLCertificate)(state), nil
+	return (*serverscom.SSLCertificate)(state), nil
 }
 
 // Get gets an ssl from manager
-func (col *Manager) Get(fingerprint string) (*client.SSLCertificate, error) {
-	col.lock.Lock()
-	defer col.lock.Unlock()
+func (m *Manager) Get(fingerprint string) (*serverscom.SSLCertificate, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	sslCertificate, ok := col.resources[fingerprint]
+	sslCertificate, ok := m.resources[fingerprint]
 
 	if !ok {
 		return nil, fmt.Errorf("can't find registered resource with name: %s", fingerprint)

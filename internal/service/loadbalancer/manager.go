@@ -9,7 +9,7 @@ import (
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/annotations"
 
-	client "github.com/serverscom/serverscom-go-client/pkg"
+	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	networkv1 "k8s.io/api/networking/v1"
 	"k8s.io/klog/v2"
 )
@@ -19,47 +19,47 @@ import (
 // ManagerInterface describes an interface to manage load balancers
 type LBManagerInterface interface {
 	HasRegistration(name string) bool
-	NewLoadBalancer(input *client.L7LoadBalancerCreateInput) (*client.L7LoadBalancer, error, bool)
+	NewLoadBalancer(input *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error, bool)
 	DeleteLoadBalancer(name string) error
-	UpdateLoadBalancer(input *client.L7LoadBalancerUpdateInput) (*client.L7LoadBalancer, error, bool)
+	UpdateLoadBalancer(input *serverscom.L7LoadBalancerUpdateInput) (*serverscom.L7LoadBalancer, error, bool)
 	GetIds() []string
-	TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*client.L7LoadBalancerCreateInput, error)
+	TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*serverscom.L7LoadBalancerCreateInput, error)
 }
 
 // Manager represents a load balancer manager
 type Manager struct {
 	resources map[string]*LoadBalancer
 
-	lock      sync.Mutex
-	lBService client.LoadBalancersService
-	store     store.Storer
+	lock   sync.Mutex
+	client *serverscom.Client
+	store  store.Storer
 }
 
 // NewManager creates a load balancer manager
-func NewManager(lBService client.LoadBalancersService, store store.Storer) *Manager {
+func NewManager(client *serverscom.Client, store store.Storer) *Manager {
 	return &Manager{
 		resources: make(map[string]*LoadBalancer),
-		lBService: lBService,
+		client:    client,
 		store:     store,
 	}
 }
 
 // HasRegistration checks if lb manager has load balancer with specified name
-func (manager *Manager) HasRegistration(name string) bool {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+func (m *Manager) HasRegistration(name string) bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	_, ok := manager.resources[name]
+	_, ok := m.resources[name]
 	return ok
 }
 
 // NewLoadBalancer creates a new load balancer in portal from input if it doesn't exists in portal, otherwise update it
 // Updates load balancer state in manager
-func (manager *Manager) NewLoadBalancer(input *client.L7LoadBalancerCreateInput) (*client.L7LoadBalancer, error, bool) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+func (m *Manager) NewLoadBalancer(input *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error, bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	lb := NewLoadBalancer(manager.lBService, input)
+	lb := NewLoadBalancer(m.client.LoadBalancers, input)
 	lb.Find(input.Name)
 	l7, err := lb.Sync()
 
@@ -67,16 +67,16 @@ func (manager *Manager) NewLoadBalancer(input *client.L7LoadBalancerCreateInput)
 		return nil, err, false
 	}
 
-	manager.resources[input.Name] = lb
+	m.resources[input.Name] = lb
 	return l7, nil, true
 }
 
 // DeleteLoadBalancer deletes load balancer from portal and manager
-func (manager *Manager) DeleteLoadBalancer(name string) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+func (m *Manager) DeleteLoadBalancer(name string) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	lb, ok := manager.resources[name]
+	lb, ok := m.resources[name]
 
 	if !ok {
 		return fmt.Errorf("can't find resource: %s", name)
@@ -90,17 +90,17 @@ func (manager *Manager) DeleteLoadBalancer(name string) error {
 		return err
 	}
 
-	delete(manager.resources, name)
+	delete(m.resources, name)
 
 	return nil
 }
 
 // UpdateLoadBalancer updates load balancer in portal and manager.
-func (manager *Manager) UpdateLoadBalancer(input *client.L7LoadBalancerUpdateInput) (*client.L7LoadBalancer, error, bool) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+func (m *Manager) UpdateLoadBalancer(input *serverscom.L7LoadBalancerUpdateInput) (*serverscom.L7LoadBalancer, error, bool) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	lb, ok := manager.resources[input.Name]
+	lb, ok := m.resources[input.Name]
 
 	if !ok {
 		return nil, fmt.Errorf("can't find resource: %s", input.Name), false
@@ -121,7 +121,7 @@ func (manager *Manager) UpdateLoadBalancer(input *client.L7LoadBalancerUpdateInp
 	l7, err := lb.Sync()
 
 	if err != nil {
-		manager.resources[input.Name] = lbCopy
+		m.resources[input.Name] = lbCopy
 
 		return nil, err, false
 	}
@@ -129,10 +129,10 @@ func (manager *Manager) UpdateLoadBalancer(input *client.L7LoadBalancerUpdateInp
 	return l7, nil, true
 }
 
-func (manager *Manager) GetIds() []string {
+func (m *Manager) GetIds() []string {
 	var ids []string
 
-	for k := range manager.resources {
+	for k := range m.resources {
 		ids = append(ids, k)
 	}
 
@@ -140,16 +140,18 @@ func (manager *Manager) GetIds() []string {
 }
 
 // TranslateIngressToLB maps an Ingress to L7 LB object and fills annotations
-func (manager *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*client.L7LoadBalancerCreateInput, error) {
-	sInfo, err := manager.store.GetIngressServiceInfo(ingress)
+func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*serverscom.L7LoadBalancerCreateInput, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	sInfo, err := m.store.GetIngressServiceInfo(ingress)
 	if err != nil {
 		return nil, err
 	}
 
-	var upstreamZones []client.L7UpstreamZoneInput
-	var upstreams []client.L7UpstreamInput
-	var vhostZones []client.L7VHostZoneInput
-	var locationZones []client.L7LocationZoneInput
+	var upstreamZones []serverscom.L7UpstreamZoneInput
+	var upstreams []serverscom.L7UpstreamInput
+	var vhostZones []serverscom.L7VHostZoneInput
+	var locationZones []serverscom.L7LocationZoneInput
 
 	for sKey, service := range sInfo {
 		sslId := ""
@@ -157,7 +159,7 @@ func (manager *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCert
 		vhostPorts := []int32{80}
 		upstreamId := fmt.Sprintf("upstream-zone-%s", sKey)
 		for _, ip := range service.NodeIps {
-			upstreams = append(upstreams, client.L7UpstreamInput{
+			upstreams = append(upstreams, serverscom.L7UpstreamInput{
 				IP:     ip,
 				Weight: 1,
 				Port:   int32(service.NodePort),
@@ -170,13 +172,13 @@ func (manager *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCert
 				sslEnabled = true
 				vhostPorts = []int32{443}
 			}
-			locationZones = append(locationZones, client.L7LocationZoneInput{
+			locationZones = append(locationZones, serverscom.L7LocationZoneInput{
 				Location:   "/",
 				UpstreamID: upstreamId,
 			})
 		}
 
-		vZInput := client.L7VHostZoneInput{
+		vZInput := serverscom.L7VHostZoneInput{
 			ID:            fmt.Sprintf("vhost-zone-%s", sKey),
 			Domains:       service.Hosts,
 			SSLCertID:     sslId,
@@ -187,7 +189,7 @@ func (manager *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCert
 		vZInput = *annotations.FillLBVHostZoneWithServiceAnnotations(&vZInput, service.Annotations)
 		vhostZones = append(vhostZones, vZInput)
 
-		uZInput := client.L7UpstreamZoneInput{
+		uZInput := serverscom.L7UpstreamZoneInput{
 			ID:        upstreamId,
 			Upstreams: upstreams,
 		}
@@ -201,12 +203,13 @@ func (manager *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCert
 		locId = 1
 	}
 
-	lbInput := &client.L7LoadBalancerCreateInput{
+	lbInput := &serverscom.L7LoadBalancerCreateInput{
 		Name:          GetLoadBalancerName(ingress),
 		LocationID:    int64(locId),
 		UpstreamZones: upstreamZones,
 		VHostZones:    vhostZones,
 	}
+	// regions :=
 	lbInput = annotations.FillLBWithIngressAnnotations(lbInput, ingress.Annotations)
 
 	return lbInput, nil

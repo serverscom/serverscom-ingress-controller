@@ -6,28 +6,28 @@ import (
 	"strconv"
 	"time"
 
-	client "github.com/serverscom/serverscom-go-client/pkg"
+	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 )
 
 // LoadBalancer represents a load balancer object for manager
 type LoadBalancer struct {
 	id string
 
-	state *client.L7LoadBalancer
+	state *serverscom.L7LoadBalancer
 
-	createInput   *client.L7LoadBalancerCreateInput
-	currentInput  *client.L7LoadBalancerUpdateInput
-	previousInput *client.L7LoadBalancerUpdateInput
+	createInput   *serverscom.L7LoadBalancerCreateInput
+	currentInput  *serverscom.L7LoadBalancerUpdateInput
+	previousInput *serverscom.L7LoadBalancerUpdateInput
 
 	deleted bool
 
 	lastRefresh time.Time
 
-	lBService client.LoadBalancersService
+	lBService serverscom.LoadBalancersService
 }
 
 // NewLoadBalancer creates a new load balancer object
-func NewLoadBalancer(lBService client.LoadBalancersService, input *client.L7LoadBalancerCreateInput) *LoadBalancer {
+func NewLoadBalancer(lBService serverscom.LoadBalancersService, input *serverscom.L7LoadBalancerCreateInput) *LoadBalancer {
 	return &LoadBalancer{
 		createInput: input,
 
@@ -79,7 +79,7 @@ func (lb *LoadBalancer) Copy() *LoadBalancer {
 }
 
 // IsChanged returns true if newInput don't match currentInput
-func (lb *LoadBalancer) IsChanged(newInput *client.L7LoadBalancerUpdateInput) bool {
+func (lb *LoadBalancer) IsChanged(newInput *serverscom.L7LoadBalancerUpdateInput) bool {
 	newPayload, err := json.Marshal(newInput)
 
 	if err != nil {
@@ -96,7 +96,7 @@ func (lb *LoadBalancer) IsChanged(newInput *client.L7LoadBalancerUpdateInput) bo
 }
 
 // Sync create/update/delete load balancer depending on it state
-func (lb *LoadBalancer) Sync() (*client.L7LoadBalancer, error) {
+func (lb *LoadBalancer) Sync() (*serverscom.L7LoadBalancer, error) {
 	if lb.deleted {
 		return nil, lb.delete()
 	}
@@ -114,7 +114,7 @@ func (lb *LoadBalancer) MarkAsDeleted() {
 }
 
 // UpdateInput saves current input to previous and updates current input with newInput
-func (lb *LoadBalancer) UpdateInput(newInput *client.L7LoadBalancerUpdateInput) {
+func (lb *LoadBalancer) UpdateInput(newInput *serverscom.L7LoadBalancerUpdateInput) {
 	lb.previousInput = lb.currentInput
 	lb.currentInput = newInput
 }
@@ -129,7 +129,7 @@ func (lb *LoadBalancer) delete() error {
 }
 
 // create creates load balancer in portal
-func (lb *LoadBalancer) create() (*client.L7LoadBalancer, error) {
+func (lb *LoadBalancer) create() (*serverscom.L7LoadBalancer, error) {
 	l7, err := lb.lBService.CreateL7LoadBalancer(context.Background(), *lb.createInput)
 
 	if err != nil {
@@ -144,9 +144,9 @@ func (lb *LoadBalancer) create() (*client.L7LoadBalancer, error) {
 }
 
 // update updates load balancer in portal
-func (lb *LoadBalancer) update() (*client.L7LoadBalancer, error) {
+func (lb *LoadBalancer) update() (*serverscom.L7LoadBalancer, error) {
 	if lb.currentInput == nil {
-		lb.currentInput = &client.L7LoadBalancerUpdateInput{
+		lb.currentInput = &serverscom.L7LoadBalancerUpdateInput{
 			Name:              lb.createInput.Name,
 			StoreLogs:         lb.createInput.StoreLogs,
 			StoreLogsRegionID: lb.createInput.StoreLogsRegionID,

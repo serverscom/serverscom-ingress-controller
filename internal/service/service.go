@@ -69,6 +69,7 @@ func (s *Service) SyncToPortal(key string) error {
 	}
 
 	// generate lb input from ingress
+	// s.ServerscomClient.CloudComputingRegions
 	lbInput, err := s.lbManager.TranslateIngressToLB(ing, sslCerts)
 	if err != nil {
 		klog.Errorf("translate ingress '%s' to LB failed: %v", key, err)
