@@ -12,7 +12,7 @@ import (
 
 // Syncer describes a sync interface
 type Syncer interface {
-	SyncTLS(ingress *networkv1.Ingress) (map[string]string, error)
+	SyncTLS(ingress *networkv1.Ingress, certManagerPrefix string) (map[string]string, error)
 	SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) error
 	CleanupLBs(ingressClass string) error
 }

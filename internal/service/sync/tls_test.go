@@ -9,10 +9,15 @@ import (
 
 	. "github.com/onsi/gomega"
 	client "github.com/serverscom/serverscom-go-client/pkg"
+	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	"github.com/serverscom/serverscom-ingress-controller/internal/testdata"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
+)
+
+var (
+	scCertManagerPrefix = "sc-certmgr-cert-id-"
 )
 
 func TestSyncTLS(t *testing.T) {
@@ -59,7 +64,7 @@ func TestSyncTLS(t *testing.T) {
 			gomock.Any()).
 			Return(expectedCert, nil)
 
-		result, err := syncManager.SyncTLS(ingress)
+		result, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(BeNil())
 		g.Expect(result).To(HaveKeyWithValue("example.com", "cert-id"))
 	})
@@ -68,7 +73,7 @@ func TestSyncTLS(t *testing.T) {
 		g := NewWithT(t)
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(nil, errors.New("error fetching secret"))
 
-		_, err := syncManager.SyncTLS(ingress)
+		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(HaveOccurred())
 	})
 
@@ -79,7 +84,7 @@ func TestSyncTLS(t *testing.T) {
 		}
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: missingCertData}, nil)
 
-		_, err := syncManager.SyncTLS(ingress)
+		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has no 'tls.crt'")))
 	})
 
@@ -90,7 +95,7 @@ func TestSyncTLS(t *testing.T) {
 		}
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: missingCertData}, nil)
 
-		_, err := syncManager.SyncTLS(ingress)
+		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has no 'tls.key'")))
 	})
 
@@ -102,7 +107,7 @@ func TestSyncTLS(t *testing.T) {
 		}
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: invalidCertData}, nil)
 
-		_, err := syncManager.SyncTLS(ingress)
+		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has invalid 'tls.crt': can't find certificate, please verify your tls.crt section")))
 	})
 
@@ -118,7 +123,20 @@ func TestSyncTLS(t *testing.T) {
 			gomock.Any()).
 			Return(nil, errors.New("error syncing certificate"))
 
-		_, err := syncManager.SyncTLS(ingress)
+		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(MatchError(fmt.Errorf("error syncing certificate")))
+	})
+
+	t.Run("Cert manager prefix", func(t *testing.T) {
+		g := NewWithT(t)
+
+		ingress.Spec.TLS[0].SecretName = scCertManagerPrefix + "someid"
+		tlsManagerHandler.EXPECT().
+			GetByID("someid").
+			Return(&serverscom.SSLCertificate{ID: "someid"}, nil)
+
+		result, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
+		g.Expect(err).To(BeNil())
+		g.Expect(result).To(HaveKeyWithValue("example.com", "someid"))
 	})
 }

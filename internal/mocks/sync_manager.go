@@ -69,16 +69,16 @@ func (mr *MockSyncerMockRecorder) SyncL7LB(lb any) *gomock.Call {
 }
 
 // SyncTLS mocks base method.
-func (m *MockSyncer) SyncTLS(ingress *v1.Ingress) (map[string]string, error) {
+func (m *MockSyncer) SyncTLS(ingress *v1.Ingress, certManagerPrefix string) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SyncTLS", ingress)
+	ret := m.ctrl.Call(m, "SyncTLS", ingress, certManagerPrefix)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SyncTLS indicates an expected call of SyncTLS.
-func (mr *MockSyncerMockRecorder) SyncTLS(ingress any) *gomock.Call {
+func (mr *MockSyncerMockRecorder) SyncTLS(ingress, certManagerPrefix any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncTLS", reflect.TypeOf((*MockSyncer)(nil).SyncTLS), ingress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncTLS", reflect.TypeOf((*MockSyncer)(nil).SyncTLS), ingress, certManagerPrefix)
 }

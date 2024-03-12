@@ -41,7 +41,7 @@ func TestGetRegionIDByCode(t *testing.T) {
 			Return(nil, nil)
 
 		id, err := GetRegionIDByCode(context.Background(), cloudRegionsHandler, "notexist")
-		expectedError := fmt.Errorf("region with code 'notexist' not found")
+		expectedError := fmt.Errorf("cloud region with code 'notexist' not found")
 		g.Expect(err).To(BeEquivalentTo(expectedError))
 		g.Expect(id).To(BeEquivalentTo(0))
 	})

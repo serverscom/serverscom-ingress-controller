@@ -43,7 +43,7 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 			LBStoreLogsRegionCode: "notexist",
 		}
 		result, err := FillLBWithIngressAnnotations(client, lbInput, annotations)
-		expectedError := fmt.Errorf("region with code 'notexist' not found")
+		expectedError := fmt.Errorf("cloud region with code 'notexist' not found")
 		g.Expect(err).To(BeEquivalentTo(expectedError))
 		g.Expect(result).NotTo(BeNil())
 	})

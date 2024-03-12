@@ -18,6 +18,7 @@ type TLSManagerInterface interface {
 	HasRegistration(fingerprint string) bool
 	SyncCertificate(fingerprint, name string, cert, key, chain []byte) (*serverscom.SSLCertificate, error)
 	Get(fingerprint string) (*serverscom.SSLCertificate, error)
+	GetByID(id string) (*serverscom.SSLCertificate, error)
 }
 
 // Manager represents a TLS manager
@@ -126,4 +127,14 @@ func (m *Manager) Get(fingerprint string) (*serverscom.SSLCertificate, error) {
 	}
 
 	return sslCertificate.state, nil
+}
+
+// Get gets an ssl from portal by id
+func (m *Manager) GetByID(id string) (*serverscom.SSLCertificate, error) {
+	customCert, err := m.client.SSLCertificates.GetCustom(context.Background(), id)
+	if err != nil {
+		return nil, err
+	}
+
+	return (*serverscom.SSLCertificate)(customCert), nil
 }

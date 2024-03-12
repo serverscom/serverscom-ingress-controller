@@ -17,25 +17,34 @@ import (
 
 // Service represents a struct that implements business logic
 type Service struct {
-	ServerscomClient *serverscom.Client
-	tlsManager       tls.TLSManagerInterface
-	lbManager        loadbalancer.LBManagerInterface
-	store            store.Storer
-	recorder         record.EventRecorder
-	ingressClass     string
-	syncManager      sync.Syncer
+	ServerscomClient  *serverscom.Client
+	tlsManager        tls.TLSManagerInterface
+	lbManager         loadbalancer.LBManagerInterface
+	store             store.Storer
+	recorder          record.EventRecorder
+	ingressClass      string
+	certManagerPrefix string
+	syncManager       sync.Syncer
 }
 
 // New creates a new Service
-func New(client *serverscom.Client, tlsManager tls.TLSManagerInterface, lbManager loadbalancer.LBManagerInterface, store store.Storer, sync sync.Syncer, recorder record.EventRecorder, ingressClass string) *Service {
+func New(client *serverscom.Client,
+	tlsManager tls.TLSManagerInterface,
+	lbManager loadbalancer.LBManagerInterface,
+	store store.Storer,
+	sync sync.Syncer,
+	recorder record.EventRecorder,
+	ingressClass string,
+	certManagerPrefix string) *Service {
 	return &Service{
-		ServerscomClient: client,
-		tlsManager:       tlsManager,
-		lbManager:        lbManager,
-		store:            store,
-		recorder:         recorder,
-		ingressClass:     ingressClass,
-		syncManager:      sync,
+		ServerscomClient:  client,
+		tlsManager:        tlsManager,
+		lbManager:         lbManager,
+		store:             store,
+		recorder:          recorder,
+		ingressClass:      ingressClass,
+		certManagerPrefix: certManagerPrefix,
+		syncManager:       sync,
 	}
 }
 
@@ -65,7 +74,7 @@ func (s *Service) SyncToPortal(key string) error {
 	}
 
 	// get certs from ingress and sync it to portal
-	sslCerts, err := s.syncManager.SyncTLS(ing)
+	sslCerts, err := s.syncManager.SyncTLS(ing, s.certManagerPrefix)
 	if err != nil {
 		e := fmt.Errorf("syncing tls for ingress '%s' failed: %v", key, err)
 		s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", e.Error())

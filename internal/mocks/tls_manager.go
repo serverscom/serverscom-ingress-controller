@@ -54,6 +54,21 @@ func (mr *MockTLSManagerInterfaceMockRecorder) Get(fingerprint any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTLSManagerInterface)(nil).Get), fingerprint)
 }
 
+// GetByID mocks base method.
+func (m *MockTLSManagerInterface) GetByID(id string) (*serverscom.SSLCertificate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByID", id)
+	ret0, _ := ret[0].(*serverscom.SSLCertificate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByID indicates an expected call of GetByID.
+func (mr *MockTLSManagerInterfaceMockRecorder) GetByID(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockTLSManagerInterface)(nil).GetByID), id)
+}
+
 // HasRegistration mocks base method.
 func (m *MockTLSManagerInterface) HasRegistration(fingerprint string) bool {
 	m.ctrl.T.Helper()

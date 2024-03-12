@@ -48,6 +48,7 @@ type Configuration struct {
 	KubeClient        *kubernetes.Clientset
 	ResyncPeriod      time.Duration
 	IngressClass      string
+	CertManagerPrefix string
 }
 
 // NewIngressController creates a new ingress controller
@@ -83,6 +84,7 @@ func NewIngressController(config *Configuration, client *serverscom.Client) *Ing
 		syncer.New(tlsManager, lbManager, ic.store),
 		ic.recorder,
 		config.IngressClass,
+		config.CertManagerPrefix,
 	)
 
 	return ic

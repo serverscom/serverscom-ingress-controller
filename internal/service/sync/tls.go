@@ -2,19 +2,30 @@ package sync
 
 import (
 	"fmt"
+	"strings"
 
-	"github.com/serverscom/serverscom-ingress-controller/internal/service/tls"
+	tlsmanager "github.com/serverscom/serverscom-ingress-controller/internal/service/tls"
 	v1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 )
 
 // SyncTLS syncs ingress tls certs stored in secrets to portal.
 // Returns map of hosts to portal cert id
-func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, error) {
+func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix string) (map[string]string, error) {
 	var sslCerts = make(map[string]string)
-
-	for _, intls := range ingress.Spec.TLS {
-		sKey := ingress.Namespace + "/" + intls.SecretName
+	for _, tls := range ingress.Spec.TLS {
+		if strings.HasPrefix(tls.SecretName, certManagerPrefix) {
+			id := strings.TrimPrefix(tls.SecretName, certManagerPrefix)
+			certificate, err := s.tls.GetByID(id)
+			if err != nil {
+				return nil, fmt.Errorf("fetching cert with id '%s' from portal failed: %v", id, err)
+			}
+			for _, host := range tls.Hosts {
+				sslCerts[host] = certificate.ID
+			}
+			continue
+		}
+		sKey := ingress.Namespace + "/" + tls.SecretName
 		secret, err := s.store.GetSecret(sKey)
 		if err != nil {
 			return nil, fmt.Errorf("fetching secret with key %s from store failed: %v", sKey, err)
@@ -29,13 +40,13 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, er
 			return nil, fmt.Errorf("secret %v has no 'tls.key'", sKey)
 		}
 
-		if err := tls.ValidateCertificate(cert); err != nil {
+		if err := tlsmanager.ValidateCertificate(cert); err != nil {
 			return nil, fmt.Errorf("secret %v has invalid 'tls.crt': %s", sKey, err.Error())
 		}
 
-		primary, chain := tls.SplitCerts(cert)
+		primary, chain := tlsmanager.SplitCerts(cert)
 
-		fingerprint := tls.GetPemFingerprint(primary)
+		fingerprint := tlsmanager.GetPemFingerprint(primary)
 
 		if fingerprint == "" {
 			return nil, fmt.Errorf("can't calculate 'tls.crt' fingerprint for %s", string(cert))
@@ -48,7 +59,7 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, er
 				return nil, err
 			}
 
-			for _, host := range intls.Hosts {
+			for _, host := range tls.Hosts {
 				sslCerts[host] = certificate.ID
 			}
 
@@ -57,9 +68,9 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, er
 
 		certificate, err := s.tls.SyncCertificate(
 			fingerprint,
-			intls.SecretName,
+			tls.SecretName,
 			primary,
-			tls.StripSpaces(key),
+			tlsmanager.StripSpaces(key),
 			chain,
 		)
 
@@ -67,7 +78,7 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress) (map[string]string, er
 			return nil, err
 		}
 
-		for _, host := range intls.Hosts {
+		for _, host := range tls.Hosts {
 			sslCerts[host] = certificate.ID
 		}
 
