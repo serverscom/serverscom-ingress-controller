@@ -8,36 +8,42 @@ import (
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/loadbalancer"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/sync"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/tls"
+	"golang.org/x/net/context"
 
-	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	v1 "k8s.io/api/core/v1"
+	networkv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 )
 
 // Service represents a struct that implements business logic
 type Service struct {
-	ServerscomClient  *serverscom.Client
+	KubeClient        kubernetes.Interface
 	tlsManager        tls.TLSManagerInterface
 	lbManager         loadbalancer.LBManagerInterface
 	store             store.Storer
 	recorder          record.EventRecorder
 	ingressClass      string
 	certManagerPrefix string
+	namespace         string
 	syncManager       sync.Syncer
 }
 
 // New creates a new Service
-func New(client *serverscom.Client,
+func New(
+	kubeClient kubernetes.Interface,
 	tlsManager tls.TLSManagerInterface,
 	lbManager loadbalancer.LBManagerInterface,
 	store store.Storer,
 	sync sync.Syncer,
 	recorder record.EventRecorder,
 	ingressClass string,
-	certManagerPrefix string) *Service {
+	certManagerPrefix string,
+	namespace string) *Service {
 	return &Service{
-		ServerscomClient:  client,
+		KubeClient:        kubeClient,
 		tlsManager:        tlsManager,
 		lbManager:         lbManager,
 		store:             store,
@@ -45,6 +51,7 @@ func New(client *serverscom.Client,
 		ingressClass:      ingressClass,
 		certManagerPrefix: certManagerPrefix,
 		syncManager:       sync,
+		namespace:         namespace,
 	}
 }
 
@@ -55,13 +62,13 @@ func (s *Service) SyncToPortal(key string) error {
 		if _, ok := err.(store.NotExistsError); ok {
 			klog.V(2).Infof("ingress %q no longer exists", key)
 			if err := s.syncManager.CleanupLBs(s.ingressClass); err != nil {
-				s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", err.Error())
+				s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", err.Error())
 				return err
 			}
 			return nil
 		}
 		e := fmt.Errorf("fetching object with key %s from store failed: %v", key, err)
-		s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", e.Error())
+		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
 	}
 
@@ -74,25 +81,50 @@ func (s *Service) SyncToPortal(key string) error {
 	}
 
 	// get certs from ingress and sync it to portal
+	klog.V(2).Infof("start syncing tls for ingress %q", key)
 	sslCerts, err := s.syncManager.SyncTLS(ing, s.certManagerPrefix)
 	if err != nil {
 		e := fmt.Errorf("syncing tls for ingress '%s' failed: %v", key, err)
-		s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", e.Error())
+		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
 	}
 
 	// generate lb input from ingress
+	klog.V(2).Infof("start translating ingress %q to load balancer", key)
 	lbInput, err := s.lbManager.TranslateIngressToLB(ing, sslCerts)
 	if err != nil {
 		e := fmt.Errorf("translate ingress '%s' to LB failed: %v", key, err)
-		s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", e.Error())
+		s.recorder.Eventf(ing, v1.EventTypeWarning, "Translate", e.Error())
 		return err
 	}
 
-	if err := s.syncManager.SyncL7LB(lbInput); err != nil {
+	klog.V(2).Infof("start syncing load balancer %q to portal", lbInput.Name)
+	lb, err := s.syncManager.SyncL7LB(lbInput)
+	if err != nil {
 		e := fmt.Errorf("syncing LB for ingress '%s' failed: %v", key, err)
-		s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncFailed", e.Error())
+		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
+	}
+
+	// update ingress status
+	klog.V(2).Infof("start updating ingress %q status with load balancer IPs", key)
+	if lb != nil {
+		var ingress []networkv1.IngressLoadBalancerIngress
+
+		for _, ip := range lb.ExternalAddresses {
+			ingress = append(ingress, networkv1.IngressLoadBalancerIngress{IP: ip})
+		}
+
+		ing.Status = networkv1.IngressStatus{
+			LoadBalancer: networkv1.IngressLoadBalancerStatus{
+				Ingress: ingress,
+			},
+		}
+		ingClient := s.KubeClient.NetworkingV1().Ingresses(s.namespace)
+		_, err = ingClient.UpdateStatus(context.Background(), ing, metav1.UpdateOptions{})
+		if err != nil {
+			s.recorder.Eventf(ing, v1.EventTypeWarning, "UpdateStatus", err.Error())
+		}
 	}
 	s.recorder.Eventf(ing, v1.EventTypeNormal, "Synced", "Successfully synced to portal")
 

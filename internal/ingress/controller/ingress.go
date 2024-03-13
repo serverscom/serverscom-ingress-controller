@@ -52,7 +52,7 @@ type Configuration struct {
 }
 
 // NewIngressController creates a new ingress controller
-func NewIngressController(config *Configuration, client *serverscom.Client) *IngressController {
+func NewIngressController(config *Configuration, scClient *serverscom.Client, kubeClient *kubernetes.Clientset) *IngressController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&corev1.EventSinkImpl{
@@ -74,10 +74,10 @@ func NewIngressController(config *Configuration, client *serverscom.Client) *Ing
 		ic.recorder,
 		ic.queue,
 	)
-	tlsManager := tls.NewManager(client, ic.store)
-	lbManager := loadbalancer.NewManager(client, ic.store)
+	tlsManager := tls.NewManager(scClient, ic.store)
+	lbManager := loadbalancer.NewManager(scClient, ic.store)
 	ic.service = service.New(
-		client,
+		kubeClient,
 		tlsManager,
 		lbManager,
 		ic.store,
@@ -85,6 +85,7 @@ func NewIngressController(config *Configuration, client *serverscom.Client) *Ing
 		ic.recorder,
 		config.IngressClass,
 		config.CertManagerPrefix,
+		config.Namespace,
 	)
 
 	return ic

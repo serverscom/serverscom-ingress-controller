@@ -10,7 +10,7 @@ import (
 )
 
 // SyncL7LB add or update L7 Load Balancer in portal
-func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) error {
+func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error) {
 	if s.lb.HasRegistration(lb.Name) {
 		lbUpdateInput := &serverscom.L7LoadBalancerUpdateInput{
 			Name:              lb.Name,
@@ -20,11 +20,11 @@ func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) error {
 			VHostZones:        lb.VHostZones,
 			UpstreamZones:     lb.UpstreamZones,
 		}
-		_, err, _ := s.lb.UpdateLoadBalancer(lbUpdateInput)
-		return err
+		result, err, _ := s.lb.UpdateLoadBalancer(lbUpdateInput)
+		return result, err
 	} else {
-		_, err, _ := s.lb.NewLoadBalancer(lb)
-		return err
+		result, err, _ := s.lb.NewLoadBalancer(lb)
+		return result, err
 	}
 }
 

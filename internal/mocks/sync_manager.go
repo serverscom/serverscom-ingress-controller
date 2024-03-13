@@ -55,11 +55,12 @@ func (mr *MockSyncerMockRecorder) CleanupLBs(ingressClass any) *gomock.Call {
 }
 
 // SyncL7LB mocks base method.
-func (m *MockSyncer) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) error {
+func (m *MockSyncer) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SyncL7LB", lb)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*serverscom.L7LoadBalancer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SyncL7LB indicates an expected call of SyncL7LB.

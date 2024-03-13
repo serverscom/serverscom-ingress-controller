@@ -27,11 +27,11 @@ var (
 func main() {
 	klog.InitFlags(nil)
 
-	conf, err := flags.ParseFlags()
+	ctrlConf, err := flags.ParseFlags()
 	if err != nil {
 		klog.Fatal(err)
 	}
-	if conf.ShowVersion {
+	if ctrlConf.ShowVersion {
 		fmt.Printf("Version=%v GitCommit=%v\n", version, gitCommit)
 		os.Exit(0)
 	}
@@ -41,22 +41,22 @@ func main() {
 		klog.Fatalf(err.Error())
 	}
 
-	if conf.Namespace != "" {
-		_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), conf.Namespace, metav1.GetOptions{})
+	if ctrlConf.Namespace != "" {
+		_, err = kubeClient.CoreV1().Namespaces().Get(context.TODO(), ctrlConf.Namespace, metav1.GetOptions{})
 		if err != nil {
-			klog.Fatalf("No namespace with name %v found: %v", conf.Namespace, err)
+			klog.Fatalf("No namespace with name %v found: %v", ctrlConf.Namespace, err)
 		}
 	}
 
-	conf.KubeClient = kubeClient
+	ctrlConf.KubeClient = kubeClient
 
-	serverscomClient, err := config.NewServerscomClient()
+	scClient, err := config.NewServerscomClient()
 	if err != nil {
 		klog.Fatal(err.Error())
 	}
-	serverscomClient.SetupUserAgent(fmt.Sprintf("serverscom-ingress-controller/%s %s", version, gitCommit))
+	scClient.SetupUserAgent(fmt.Sprintf("serverscom-ingress-controller/%s %s", version, gitCommit))
 
-	ic := controller.NewIngressController(conf, serverscomClient)
+	ic := controller.NewIngressController(ctrlConf, scClient, kubeClient)
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -78,9 +78,9 @@ func main() {
 
 	leConfig := leaderelection.LeaderElectionConfig{
 		Lock:          lock,
-		LeaseDuration: conf.LeaderElectionCfg.LeaseDuration.Duration,
-		RenewDeadline: conf.LeaderElectionCfg.RenewDeadline.Duration,
-		RetryPeriod:   conf.LeaderElectionCfg.RetryPeriod.Duration,
+		LeaseDuration: ctrlConf.LeaderElectionCfg.LeaseDuration.Duration,
+		RenewDeadline: ctrlConf.LeaderElectionCfg.RenewDeadline.Duration,
+		RetryPeriod:   ctrlConf.LeaderElectionCfg.RetryPeriod.Duration,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Infof("%s starts leading", id)

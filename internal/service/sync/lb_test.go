@@ -28,7 +28,7 @@ func TestSyncL7LB(t *testing.T) {
 		lbManagerHandler.EXPECT().HasRegistration(lbInput.Name).Return(true)
 		lbManagerHandler.EXPECT().UpdateLoadBalancer(gomock.Any()).Return(nil, nil, true)
 
-		err := syncManager.SyncL7LB(lbInput)
+		_, err := syncManager.SyncL7LB(lbInput)
 		g.Expect(err).To(BeNil())
 	})
 
@@ -37,7 +37,7 @@ func TestSyncL7LB(t *testing.T) {
 		lbManagerHandler.EXPECT().HasRegistration(lbInput.Name).Return(false)
 		lbManagerHandler.EXPECT().NewLoadBalancer(lbInput).Return(nil, nil, true)
 
-		err := syncManager.SyncL7LB(lbInput)
+		_, err := syncManager.SyncL7LB(lbInput)
 		g.Expect(err).To(BeNil())
 	})
 
@@ -46,7 +46,7 @@ func TestSyncL7LB(t *testing.T) {
 		lbManagerHandler.EXPECT().HasRegistration(lbInput.Name).Return(true)
 		lbManagerHandler.EXPECT().UpdateLoadBalancer(gomock.Any()).Return(nil, errors.New("update error"), false)
 
-		err := syncManager.SyncL7LB(lbInput)
+		_, err := syncManager.SyncL7LB(lbInput)
 		g.Expect(err).To(HaveOccurred())
 	})
 
@@ -55,7 +55,7 @@ func TestSyncL7LB(t *testing.T) {
 		lbManagerHandler.EXPECT().HasRegistration(lbInput.Name).Return(false)
 		lbManagerHandler.EXPECT().NewLoadBalancer(lbInput).Return(nil, errors.New("creation error"), false)
 
-		err := syncManager.SyncL7LB(lbInput)
+		_, err := syncManager.SyncL7LB(lbInput)
 		g.Expect(err).To(HaveOccurred())
 	})
 }
