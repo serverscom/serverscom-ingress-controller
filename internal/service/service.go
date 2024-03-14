@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
@@ -16,6 +17,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
+)
+
+const (
+	LBPollTimeout = 30 * time.Minute
 )
 
 // Service represents a struct that implements business logic
@@ -67,7 +72,7 @@ func (s *Service) SyncToPortal(key string) error {
 			}
 			return nil
 		}
-		e := fmt.Errorf("fetching object with key %s from store failed: %v", key, err)
+		e := fmt.Errorf("fetching object with key %q from store failed: %v", key, err)
 		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
 	}
@@ -84,7 +89,7 @@ func (s *Service) SyncToPortal(key string) error {
 	klog.V(2).Infof("start syncing tls for ingress %q", key)
 	sslCerts, err := s.syncManager.SyncTLS(ing, s.certManagerPrefix)
 	if err != nil {
-		e := fmt.Errorf("syncing tls for ingress '%s' failed: %v", key, err)
+		e := fmt.Errorf("syncing tls for ingress %q failed: %v", key, err)
 		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
 	}
@@ -93,7 +98,7 @@ func (s *Service) SyncToPortal(key string) error {
 	klog.V(2).Infof("start translating ingress %q to load balancer", key)
 	lbInput, err := s.lbManager.TranslateIngressToLB(ing, sslCerts)
 	if err != nil {
-		e := fmt.Errorf("translate ingress '%s' to LB failed: %v", key, err)
+		e := fmt.Errorf("translate ingress %q to LB failed: %v", key, err)
 		s.recorder.Eventf(ing, v1.EventTypeWarning, "Translate", e.Error())
 		return err
 	}
@@ -101,17 +106,25 @@ func (s *Service) SyncToPortal(key string) error {
 	klog.V(2).Infof("start syncing load balancer %q to portal", lbInput.Name)
 	lb, err := s.syncManager.SyncL7LB(lbInput)
 	if err != nil {
-		e := fmt.Errorf("syncing LB for ingress '%s' failed: %v", key, err)
+		e := fmt.Errorf("syncing LB for ingress %q failed: %v", key, err)
 		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
 		return err
+	}
+	if lb == nil {
+		e := fmt.Errorf("no LB returned after syncing for ingress %q", key)
+		s.recorder.Eventf(ing, v1.EventTypeWarning, "Sync", e.Error())
+		return e
 	}
 
 	// update ingress status
 	klog.V(2).Infof("start updating ingress %q status with load balancer IPs", key)
-	if lb != nil {
-		var ingress []networkv1.IngressLoadBalancerIngress
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), LBPollTimeout)
+		defer cancel()
+		activeLB, err := s.syncManager.SyncStatus(ctx, lb)
 
-		for _, ip := range lb.ExternalAddresses {
+		var ingress []networkv1.IngressLoadBalancerIngress
+		for _, ip := range activeLB.ExternalAddresses {
 			ingress = append(ingress, networkv1.IngressLoadBalancerIngress{IP: ip})
 		}
 
@@ -125,7 +138,8 @@ func (s *Service) SyncToPortal(key string) error {
 		if err != nil {
 			s.recorder.Eventf(ing, v1.EventTypeWarning, "UpdateStatus", err.Error())
 		}
-	}
+	}()
+
 	s.recorder.Eventf(ing, v1.EventTypeNormal, "Synced", "Successfully synced to portal")
 
 	return nil

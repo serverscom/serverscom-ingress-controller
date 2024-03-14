@@ -31,7 +31,7 @@ func ParseFlags() (*controller.Configuration, error) {
 			`Period at which the controller forces the repopulation of its local object stores. Disabled by default.`)
 
 		certManagerPrefix = flags.String("cert-manager-prefix", "sc-certmgr-cert-id-",
-			`Cert manager prefix is used in ingress tls secret name to determine should we lookup for cert from portal or not. Default 'sc-certmgr-cert-id-'.`)
+			`Cert manager prefix is used in ingress tls secret name to determine should we lookup for cert from API or not. Default 'sc-certmgr-cert-id-'.`)
 	)
 
 	flags.AddGoFlagSet(flag.CommandLine)

@@ -68,6 +68,21 @@ func (mr *MockLBManagerInterfaceMockRecorder) GetIds() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIds", reflect.TypeOf((*MockLBManagerInterface)(nil).GetIds))
 }
 
+// GetLoadBalancer mocks base method.
+func (m *MockLBManagerInterface) GetLoadBalancer(name string) (*serverscom.L7LoadBalancer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLoadBalancer", name)
+	ret0, _ := ret[0].(*serverscom.L7LoadBalancer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLoadBalancer indicates an expected call of GetLoadBalancer.
+func (mr *MockLBManagerInterfaceMockRecorder) GetLoadBalancer(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoadBalancer", reflect.TypeOf((*MockLBManagerInterface)(nil).GetLoadBalancer), name)
+}
+
 // HasRegistration mocks base method.
 func (m *MockLBManagerInterface) HasRegistration(name string) bool {
 	m.ctrl.T.Helper()

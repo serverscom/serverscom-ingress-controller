@@ -129,7 +129,7 @@ func (m *Manager) Get(fingerprint string) (*serverscom.SSLCertificate, error) {
 	return sslCertificate.state, nil
 }
 
-// Get gets an ssl from portal by id
+// Get gets an ssl from API by id
 func (m *Manager) GetByID(id string) (*serverscom.SSLCertificate, error) {
 	customCert, err := m.client.SSLCertificates.GetCustom(context.Background(), id)
 	if err != nil {

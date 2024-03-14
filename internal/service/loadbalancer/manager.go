@@ -24,6 +24,7 @@ type LBManagerInterface interface {
 	UpdateLoadBalancer(input *serverscom.L7LoadBalancerUpdateInput) (*serverscom.L7LoadBalancer, error, bool)
 	GetIds() []string
 	TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*serverscom.L7LoadBalancerCreateInput, error)
+	GetLoadBalancer(name string) (*serverscom.L7LoadBalancer, error)
 }
 
 // Manager represents a load balancer manager
@@ -212,4 +213,17 @@ func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[
 	lbInput, err = annotations.FillLBWithIngressAnnotations(m.client, lbInput, ingress.Annotations)
 
 	return lbInput, err
+}
+
+// GetLoadBalancer get load balancer from api
+func (m *Manager) GetLoadBalancer(name string) (*serverscom.L7LoadBalancer, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	lb, ok := m.resources[name]
+
+	if !ok {
+		return nil, fmt.Errorf("can't find resource: %s", name)
+	}
+	return lb.Get()
 }

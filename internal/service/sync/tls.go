@@ -16,9 +16,9 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 	for _, tls := range ingress.Spec.TLS {
 		if strings.HasPrefix(tls.SecretName, certManagerPrefix) {
 			id := strings.TrimPrefix(tls.SecretName, certManagerPrefix)
-			certificate, err := s.tls.GetByID(id)
+			certificate, err := s.tlsMgr.GetByID(id)
 			if err != nil {
-				return nil, fmt.Errorf("fetching cert with id '%s' from portal failed: %v", id, err)
+				return nil, fmt.Errorf("fetching cert with id %q from API failed: %v", id, err)
 			}
 			for _, host := range tls.Hosts {
 				sslCerts[host] = certificate.ID
@@ -28,20 +28,20 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 		sKey := ingress.Namespace + "/" + tls.SecretName
 		secret, err := s.store.GetSecret(sKey)
 		if err != nil {
-			return nil, fmt.Errorf("fetching secret with key %s from store failed: %v", sKey, err)
+			return nil, fmt.Errorf("fetching secret with key %q from store failed: %v", sKey, err)
 		}
 		cert, ok := secret.Data[v1.TLSCertKey]
 		if !ok {
-			return nil, fmt.Errorf("secret %v has no 'tls.crt'", sKey)
+			return nil, fmt.Errorf("secret %q has no 'tls.crt'", sKey)
 		}
 
 		key, ok := secret.Data[v1.TLSPrivateKeyKey]
 		if !ok {
-			return nil, fmt.Errorf("secret %v has no 'tls.key'", sKey)
+			return nil, fmt.Errorf("secret %q has no 'tls.key'", sKey)
 		}
 
 		if err := tlsmanager.ValidateCertificate(cert); err != nil {
-			return nil, fmt.Errorf("secret %v has invalid 'tls.crt': %s", sKey, err.Error())
+			return nil, fmt.Errorf("secret %q has invalid 'tls.crt': %v", sKey, err)
 		}
 
 		primary, chain := tlsmanager.SplitCerts(cert)
@@ -52,8 +52,8 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 			return nil, fmt.Errorf("can't calculate 'tls.crt' fingerprint for %s", string(cert))
 		}
 
-		if s.tls.HasRegistration(fingerprint) {
-			certificate, err := s.tls.Get(fingerprint)
+		if s.tlsMgr.HasRegistration(fingerprint) {
+			certificate, err := s.tlsMgr.Get(fingerprint)
 
 			if err != nil {
 				return nil, err
@@ -66,7 +66,7 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 			continue
 		}
 
-		certificate, err := s.tls.SyncCertificate(
+		certificate, err := s.tlsMgr.SyncCertificate(
 			fingerprint,
 			tls.SecretName,
 			primary,

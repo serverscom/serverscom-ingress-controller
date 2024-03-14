@@ -27,7 +27,7 @@ func TestSyncTLS(t *testing.T) {
 	tlsManagerHandler := mocks.NewMockTLSManagerInterface(mockCtrl)
 	storeHandler := mocks.NewMockStorer(mockCtrl)
 
-	syncManager := New(tlsManagerHandler, nil, storeHandler)
+	syncManager := New(tlsManagerHandler, nil, storeHandler, nil)
 
 	ingress := &networkv1.Ingress{
 		Spec: networkv1.IngressSpec{
@@ -85,7 +85,7 @@ func TestSyncTLS(t *testing.T) {
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: missingCertData}, nil)
 
 		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
-		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has no 'tls.crt'")))
+		g.Expect(err).To(MatchError(fmt.Errorf(`secret "default/test-secret" has no 'tls.crt'`)))
 	})
 
 	t.Run("Secret missing tls.key", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestSyncTLS(t *testing.T) {
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: missingCertData}, nil)
 
 		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
-		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has no 'tls.key'")))
+		g.Expect(err).To(MatchError(fmt.Errorf(`secret "default/test-secret" has no 'tls.key'`)))
 	})
 
 	t.Run("Invalid tls.crt data", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestSyncTLS(t *testing.T) {
 		storeHandler.EXPECT().GetSecret("default/test-secret").Return(&v1.Secret{Data: invalidCertData}, nil)
 
 		_, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
-		g.Expect(err).To(MatchError(fmt.Errorf("secret default/test-secret has invalid 'tls.crt': can't find certificate, please verify your tls.crt section")))
+		g.Expect(err).To(MatchError(fmt.Errorf(`secret "default/test-secret" has invalid 'tls.crt': can't find certificate, please verify your tls.crt section`)))
 	})
 
 	t.Run("Error syncing certificate", func(t *testing.T) {

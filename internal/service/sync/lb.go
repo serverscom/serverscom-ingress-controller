@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress"
@@ -9,9 +11,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	LBPollInterval = 5 * time.Second
+)
+
 // SyncL7LB add or update L7 Load Balancer in portal
 func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error) {
-	if s.lb.HasRegistration(lb.Name) {
+	if s.lbMgr.HasRegistration(lb.Name) {
 		lbUpdateInput := &serverscom.L7LoadBalancerUpdateInput{
 			Name:              lb.Name,
 			StoreLogs:         lb.StoreLogs,
@@ -20,15 +26,15 @@ func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serve
 			VHostZones:        lb.VHostZones,
 			UpstreamZones:     lb.UpstreamZones,
 		}
-		result, err, _ := s.lb.UpdateLoadBalancer(lbUpdateInput)
+		result, err, _ := s.lbMgr.UpdateLoadBalancer(lbUpdateInput)
 		return result, err
 	} else {
-		result, err, _ := s.lb.NewLoadBalancer(lb)
+		result, err, _ := s.lbMgr.NewLoadBalancer(lb)
 		return result, err
 	}
 }
 
-// CleanupLBs deletes Load Balancers that do not have corresponding SC Ingress from portal
+// CleanupLBs deletes Load Balancers that do not have corresponding SC Ingress in portal
 func (s *SyncManager) CleanupLBs(ingressClass string) error {
 	allIngresses := s.store.ListIngress()
 
@@ -42,9 +48,9 @@ func (s *SyncManager) CleanupLBs(ingressClass string) error {
 	}
 
 	// delete LBs not associated with Ingress objects
-	for _, lbID := range s.lb.GetIds() {
+	for _, lbID := range s.lbMgr.GetIds() {
 		if _, exists := validLBs[lbID]; !exists {
-			err := s.lb.DeleteLoadBalancer(lbID)
+			err := s.lbMgr.DeleteLoadBalancer(lbID)
 			if err != nil {
 				return fmt.Errorf("failed to delete Load Balancer %s: %v", lbID, err)
 			}
@@ -52,4 +58,26 @@ func (s *SyncManager) CleanupLBs(ingressClass string) error {
 		}
 	}
 	return nil
+}
+
+func (s *SyncManager) SyncStatus(ctx context.Context, lb *serverscom.L7LoadBalancer) (*serverscom.L7LoadBalancer, error) {
+	if loadbalancer.IsActiveStatus(lb.Status) {
+		return lb, nil
+	}
+
+	for {
+		select {
+		case <-s.clock.After(LBPollInterval):
+			tmpLB, err := s.lbMgr.GetLoadBalancer(lb.Name)
+			if err != nil {
+				continue
+			}
+			if loadbalancer.IsActiveStatus(tmpLB.Status) {
+				return tmpLB, nil
+			}
+
+		case <-ctx.Done():
+			return nil, fmt.Errorf("poll LB timeout reached")
+		}
+	}
 }

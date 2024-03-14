@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
@@ -67,6 +68,21 @@ func (m *MockSyncer) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*server
 func (mr *MockSyncerMockRecorder) SyncL7LB(lb any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncL7LB", reflect.TypeOf((*MockSyncer)(nil).SyncL7LB), lb)
+}
+
+// SyncStatus mocks base method.
+func (m *MockSyncer) SyncStatus(ctx context.Context, lb *serverscom.L7LoadBalancer) (*serverscom.L7LoadBalancer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SyncStatus", ctx, lb)
+	ret0, _ := ret[0].(*serverscom.L7LoadBalancer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SyncStatus indicates an expected call of SyncStatus.
+func (mr *MockSyncerMockRecorder) SyncStatus(ctx, lb any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SyncStatus", reflect.TypeOf((*MockSyncer)(nil).SyncStatus), ctx, lb)
 }
 
 // SyncTLS mocks base method.

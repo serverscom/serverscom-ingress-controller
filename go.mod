@@ -4,6 +4,7 @@ go 1.21.4
 
 require (
 	github.com/joho/godotenv v1.5.1
+	github.com/jonboulle/clockwork v0.4.0
 	github.com/onsi/gomega v1.29.0
 	github.com/serverscom/serverscom-go-client v1.0.2
 	github.com/spf13/pflag v1.0.5

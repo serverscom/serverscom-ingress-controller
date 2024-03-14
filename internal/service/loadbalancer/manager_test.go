@@ -302,3 +302,40 @@ func TestTranslateIngressToLB(t *testing.T) {
 		g.Expect(lbInput.VHostZones).To(BeEmpty())
 	})
 }
+
+func TestGetLoadBalancer(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	lbHandler := mocks.NewMockLoadBalancersService(mockCtrl)
+	lbName := "test-lb"
+	lbID := "test-id"
+	expectedL7LB := &serverscom.L7LoadBalancer{ID: lbID, Name: lbName}
+
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.LoadBalancers = lbHandler
+	manager := NewManager(client, nil)
+	manager.resources[lbName] = &LoadBalancer{
+		id:        lbID,
+		state:     expectedL7LB,
+		lBService: lbHandler,
+		deleted:   false,
+	}
+
+	t.Run("Not found", func(t *testing.T) {
+		_, err := manager.GetLoadBalancer("not-exist")
+
+		g.Expect(err).To(MatchError(fmt.Errorf("can't find resource: not-exist")))
+	})
+
+	t.Run("Successfull get", func(t *testing.T) {
+		lbHandler.EXPECT().GetL7LoadBalancer(gomock.Any(), lbID).Return(expectedL7LB, nil)
+
+		result, err := manager.GetLoadBalancer(lbName)
+
+		g.Expect(err).To(BeNil())
+		g.Expect(result).To(BeEquivalentTo(expectedL7LB))
+	})
+}

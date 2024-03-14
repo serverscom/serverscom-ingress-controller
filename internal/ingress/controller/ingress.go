@@ -3,6 +3,7 @@ package controller
 import (
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/loadbalancer"
@@ -26,6 +27,7 @@ import (
 
 const (
 	EventRecorderComponent = "sc-ingress-controller"
+	QueueRetries           = 5
 )
 
 // IngressController represents an Ingress Controller
@@ -81,7 +83,7 @@ func NewIngressController(config *Configuration, scClient *serverscom.Client, ku
 		tlsManager,
 		lbManager,
 		ic.store,
-		syncer.New(tlsManager, lbManager, ic.store),
+		syncer.New(tlsManager, lbManager, ic.store, clockwork.NewRealClock()),
 		ic.recorder,
 		config.IngressClass,
 		config.CertManagerPrefix,
@@ -145,8 +147,7 @@ func (ic *IngressController) handleErr(err error, key interface{}) {
 		return
 	}
 
-	// retries 2 times
-	if ic.queue.NumRequeues(key) < 2 {
+	if ic.queue.NumRequeues(key) < QueueRetries {
 		klog.Errorf("Error syncing ingress %v: %v", key, err)
 
 		// re-enqueue the key rate limited

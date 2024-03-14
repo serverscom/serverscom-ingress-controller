@@ -36,6 +36,14 @@ var (
 			IngressClassName: &nonScIngressClassName,
 		},
 	}
+	inProcessLB = &serverscom.L7LoadBalancer{
+		ExternalAddresses: []string{"1.2.3.4"},
+		Status:            "in_process",
+	}
+	activeLB = &serverscom.L7LoadBalancer{
+		ExternalAddresses: []string{"1.2.3.4"},
+		Status:            "active",
+	}
 )
 
 func TestSyncToPortal(t *testing.T) {
@@ -71,7 +79,7 @@ func TestSyncToPortal(t *testing.T) {
 
 		select {
 		case e := <-recorder.Events:
-			expectedEvent := "Warning Sync fetching object with key ingress from store failed: fetch error"
+			expectedEvent := `Warning Sync fetching object with key "ingress" from store failed: fetch error`
 			g.Expect(e).To(BeEquivalentTo(expectedEvent))
 		case <-time.After(time.Second * 1):
 			t.Fatal("Timeout waiting for event")
@@ -99,7 +107,7 @@ func TestSyncToPortal(t *testing.T) {
 
 		select {
 		case e := <-recorder.Events:
-			expectedEvent := "Warning Sync syncing tls for ingress 'ingress' failed: TLS sync error"
+			expectedEvent := `Warning Sync syncing tls for ingress "ingress" failed: TLS sync error`
 			g.Expect(e).To(BeEquivalentTo(expectedEvent))
 		case <-time.After(time.Second * 1):
 			t.Fatal("Timeout waiting for event")
@@ -118,7 +126,7 @@ func TestSyncToPortal(t *testing.T) {
 
 		select {
 		case e := <-recorder.Events:
-			expectedEvent := "Warning Translate translate ingress 'ingress' to LB failed: Translate error"
+			expectedEvent := `Warning Translate translate ingress "ingress" to LB failed: Translate error`
 			g.Expect(e).To(BeEquivalentTo(expectedEvent))
 		case <-time.After(time.Second * 1):
 			t.Fatal("Timeout waiting for event")
@@ -139,7 +147,7 @@ func TestSyncToPortal(t *testing.T) {
 
 		select {
 		case e := <-recorder.Events:
-			expectedEvent := "Warning Sync syncing LB for ingress 'ingress' failed: LB sync error"
+			expectedEvent := `Warning Sync syncing LB for ingress "ingress" failed: LB sync error`
 			g.Expect(e).To(BeEquivalentTo(expectedEvent))
 		case <-time.After(time.Second * 1):
 			t.Fatal("Timeout waiting for event")
@@ -153,18 +161,27 @@ func TestSyncToPortal(t *testing.T) {
 		storeHandler.EXPECT().GetIngress("ingress").Return(scIngress, nil)
 		syncManagerHandler.EXPECT().SyncTLS(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
 		lbManagerHandler.EXPECT().TranslateIngressToLB(gomock.Any(), gomock.Any()).Return(lbInput, nil)
-		syncManagerHandler.EXPECT().SyncL7LB(gomock.Any()).Return(&serverscom.L7LoadBalancer{ExternalAddresses: []string{"1.2.3.4"}}, nil)
+		syncManagerHandler.EXPECT().SyncL7LB(gomock.Any()).Return(inProcessLB, nil)
+		syncManagerHandler.EXPECT().SyncStatus(gomock.Any(), inProcessLB).Return(activeLB, nil)
 
 		err := srv.SyncToPortal("ingress")
 		g.Expect(err).To(BeNil())
 
-		select {
-		case e := <-recorder.Events:
-			expectedEvent := `Warning UpdateStatus ingresses.networking.k8s.io "test-ingress" not found`
-			g.Expect(e).To(BeEquivalentTo(expectedEvent))
-		case <-time.After(time.Second * 1):
-			t.Fatal("Timeout waiting for event")
+		var events []string
+		timeout := time.After(10 * time.Millisecond)
+	collectEvents:
+		for {
+			select {
+			case e := <-recorder.Events:
+				events = append(events, e)
+			case <-timeout:
+				break collectEvents
+			}
 		}
+		g.Expect(events).To(ContainElements(
+			"Normal Synced Successfully synced to portal",
+			`Warning UpdateStatus ingresses.networking.k8s.io "test-ingress" not found`,
+		))
 	})
 
 	t.Run("Successful sync", func(t *testing.T) {
@@ -177,10 +194,14 @@ func TestSyncToPortal(t *testing.T) {
 		storeHandler.EXPECT().GetIngress("ingress").Return(scIngress, nil)
 		syncManagerHandler.EXPECT().SyncTLS(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
 		lbManagerHandler.EXPECT().TranslateIngressToLB(gomock.Any(), gomock.Any()).Return(lbInput, nil)
-		syncManagerHandler.EXPECT().SyncL7LB(gomock.Any()).Return(&serverscom.L7LoadBalancer{ExternalAddresses: []string{"1.2.3.4"}}, nil)
+		syncManagerHandler.EXPECT().SyncL7LB(gomock.Any()).Return(inProcessLB, nil)
+		syncManagerHandler.EXPECT().SyncStatus(gomock.Any(), inProcessLB).Return(activeLB, nil)
 
 		err = srv.SyncToPortal("ingress")
 		g.Expect(err).To(BeNil())
+
+		// wait for go routine
+		time.Sleep(10 * time.Millisecond)
 
 		ing, err := fakeClient.NetworkingV1().Ingresses(namespace).Get(context.Background(), "test-ingress", metav1.GetOptions{})
 		g.Expect(err).To(BeNil())

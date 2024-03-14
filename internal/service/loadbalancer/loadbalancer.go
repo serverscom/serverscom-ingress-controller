@@ -119,7 +119,7 @@ func (lb *LoadBalancer) UpdateInput(newInput *serverscom.L7LoadBalancerUpdateInp
 	lb.currentInput = newInput
 }
 
-// delete deletes load balancer from portal
+// delete deletes load balancer in portal
 func (lb *LoadBalancer) delete() error {
 	if err := lb.lBService.DeleteL7LoadBalancer(context.Background(), lb.id); err != nil {
 		return err
@@ -161,6 +161,21 @@ func (lb *LoadBalancer) update() (*serverscom.L7LoadBalancer, error) {
 		return nil, err
 	}
 
+	lb.state = l7
+	lb.lastRefresh = time.Now()
+
+	return l7, nil
+}
+
+// Get gets load balancer from api
+func (lb *LoadBalancer) Get() (*serverscom.L7LoadBalancer, error) {
+	l7, err := lb.lBService.GetL7LoadBalancer(context.Background(), lb.id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	lb.id = l7.ID
 	lb.state = l7
 	lb.lastRefresh = time.Now()
 
