@@ -23,6 +23,8 @@ func FillLBWithIngressAnnotations(client *serverscom.Client, lbInput *serverscom
 			return lbInput, err
 		}
 		lbInput.StoreLogsRegionID = &regionID
+		storeLogs := true
+		lbInput.StoreLogs = &storeLogs
 	}
 
 	// LBGeoIPEnabled annotation
