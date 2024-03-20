@@ -1,7 +1,6 @@
 package annotations
 
 import (
-	"context"
 	"strconv"
 
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
@@ -15,16 +14,14 @@ const (
 )
 
 // FillLBWithIngressAnnotations prepares the LB input based on annotations.
-func FillLBWithIngressAnnotations(client *serverscom.Client, lbInput *serverscom.L7LoadBalancerCreateInput, annotations map[string]string) (*serverscom.L7LoadBalancerCreateInput, error) {
+func FillLBWithIngressAnnotations(lbInput *serverscom.L7LoadBalancerCreateInput, annotations map[string]string) (*serverscom.L7LoadBalancerCreateInput, error) {
 	// LBStoreLogsRegionCode annotation
 	if value, ok := annotations[LBStoreLogsRegionCode]; ok {
-		regionID, err := GetRegionIDByCode(context.Background(), client.CloudComputingRegions, value)
-		if err != nil {
-			return lbInput, err
+		if regionID, found := GetStorageRegionIDByCode(value); found {
+			lbInput.StoreLogsRegionID = &regionID
+			storeLogs := true
+			lbInput.StoreLogs = &storeLogs
 		}
-		lbInput.StoreLogsRegionID = &regionID
-		storeLogs := true
-		lbInput.StoreLogs = &storeLogs
 	}
 
 	// LBGeoIPEnabled annotation

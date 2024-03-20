@@ -1,36 +1,13 @@
 package annotations
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
-	"github.com/serverscom/serverscom-ingress-controller/internal/mocks"
-	"go.uber.org/mock/gomock"
 )
 
 func TestFillLBWithIngressAnnotations(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	cloudRegionsHandler := mocks.NewMockCloudComputingRegionsService(mockCtrl)
-	collectionHandler := mocks.NewMockCollection[serverscom.CloudComputingRegion](mockCtrl)
-
-	cloudRegionsHandler.EXPECT().
-		Collection().
-		Return(collectionHandler).
-		AnyTimes()
-
-	cloudRegion := serverscom.CloudComputingRegion{ID: 1, Name: "test", Code: "test1"}
-	collectionHandler.EXPECT().
-		Collect(gomock.Any()).
-		Return([]serverscom.CloudComputingRegion{cloudRegion}, nil).
-		AnyTimes()
-
-	client := serverscom.NewClientWithEndpoint("", "")
-	client.CloudComputingRegions = cloudRegionsHandler
-
 	lbInput := &serverscom.L7LoadBalancerCreateInput{
 		UpstreamZones: []serverscom.L7UpstreamZoneInput{
 			{TLSPreset: new(string)},
@@ -42,10 +19,10 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 		annotations := map[string]string{
 			LBStoreLogsRegionCode: "notexist",
 		}
-		result, err := FillLBWithIngressAnnotations(client, lbInput, annotations)
-		expectedError := fmt.Errorf("cloud region with code 'notexist' not found")
-		g.Expect(err).To(BeEquivalentTo(expectedError))
-		g.Expect(result).NotTo(BeNil())
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
+		g.Expect(err).To(BeNil())
+		g.Expect(result.StoreLogs).To(BeNil())
+		g.Expect(result.StoreLogsRegionID).To(BeNil())
 	})
 
 	t.Run("Invalid geoipEnabled value", func(t *testing.T) {
@@ -53,7 +30,7 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 		annotations := map[string]string{
 			LBGeoIPEnabled: "invalid",
 		}
-		result, err := FillLBWithIngressAnnotations(client, lbInput, annotations)
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
 		g.Expect(err.Error()).To(BeEquivalentTo(`strconv.ParseBool: parsing "invalid": invalid syntax`))
 		g.Expect(result).NotTo(BeNil())
 	})
@@ -61,12 +38,12 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 	t.Run("Valid annotations", func(t *testing.T) {
 		g := NewWithT(t)
 		annotations := map[string]string{
-			LBStoreLogsRegionCode: "Test1",
+			LBStoreLogsRegionCode: "US01",
 			LBGeoIPEnabled:        "true",
 			LBMinTLSVersion:       "TLSv1.3",
 		}
 
-		result, err := FillLBWithIngressAnnotations(client, lbInput, annotations)
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
 		g.Expect(err).To(BeNil())
 		g.Expect(result).NotTo(BeNil())
 

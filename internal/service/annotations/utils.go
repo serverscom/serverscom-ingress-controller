@@ -1,23 +1,22 @@
 package annotations
 
 import (
-	"context"
-	"fmt"
 	"strings"
-
-	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 )
 
-// GetRegionIDByCode returns ID of cloud region by region code
-func GetRegionIDByCode(ctx context.Context, regionsService serverscom.CloudComputingRegionsService, code string) (int, error) {
-	regions, err := regionsService.Collection().Collect(ctx)
-	if err != nil {
-		return 0, err
+var (
+	regionsIDs = map[string]int{
+		"NL01":  0,
+		"US01":  1,
+		"LU01":  2,
+		"MO01":  3,
+		"SIN01": 4,
+		"MOW2":  5,
 	}
-	for _, r := range regions {
-		if strings.EqualFold(r.Code, code) {
-			return int(r.ID), nil
-		}
-	}
-	return 0, fmt.Errorf("cloud region with code '%s' not found", code)
+)
+
+// GetStorageRegionIDByCode returns ID of cloud storage region by region code
+func GetStorageRegionIDByCode(code string) (int, bool) {
+	id, ok := regionsIDs[strings.ToUpper(code)]
+	return id, ok
 }
