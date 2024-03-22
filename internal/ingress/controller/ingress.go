@@ -3,6 +3,7 @@ package controller
 import (
 	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/loadbalancer"
@@ -26,6 +27,7 @@ import (
 
 const (
 	EventRecorderComponent = "sc-ingress-controller"
+	QueueRetries           = 5
 )
 
 // IngressController represents an Ingress Controller
@@ -48,10 +50,11 @@ type Configuration struct {
 	KubeClient        *kubernetes.Clientset
 	ResyncPeriod      time.Duration
 	IngressClass      string
+	CertManagerPrefix string
 }
 
 // NewIngressController creates a new ingress controller
-func NewIngressController(config *Configuration, client *serverscom.Client) *IngressController {
+func NewIngressController(config *Configuration, scClient *serverscom.Client, kubeClient *kubernetes.Clientset) *IngressController {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&corev1.EventSinkImpl{
@@ -73,16 +76,18 @@ func NewIngressController(config *Configuration, client *serverscom.Client) *Ing
 		ic.recorder,
 		ic.queue,
 	)
-	tlsManager := tls.NewManager(client.SSLCertificates, ic.store)
-	lbManager := loadbalancer.NewManager(client.LoadBalancers, ic.store)
+	tlsManager := tls.NewManager(scClient, ic.store)
+	lbManager := loadbalancer.NewManager(scClient, ic.store)
 	ic.service = service.New(
-		client,
+		kubeClient,
 		tlsManager,
 		lbManager,
 		ic.store,
-		syncer.New(tlsManager, lbManager, ic.store),
+		syncer.New(tlsManager, lbManager, ic.store, clockwork.NewRealClock()),
 		ic.recorder,
 		config.IngressClass,
+		config.CertManagerPrefix,
+		config.Namespace,
 	)
 
 	return ic
@@ -142,9 +147,8 @@ func (ic *IngressController) handleErr(err error, key interface{}) {
 		return
 	}
 
-	// retries 2 times
-	if ic.queue.NumRequeues(key) < 2 {
-		klog.Infof("Error syncing ingress %v: %v", key, err)
+	if ic.queue.NumRequeues(key) < QueueRetries {
+		klog.Errorf("Error syncing ingress %v: %v", key, err)
 
 		// re-enqueue the key rate limited
 		ic.queue.AddRateLimited(key)

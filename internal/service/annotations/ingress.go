@@ -14,21 +14,23 @@ const (
 )
 
 // FillLBWithIngressAnnotations prepares the LB input based on annotations.
-func FillLBWithIngressAnnotations(lbInput *serverscom.L7LoadBalancerCreateInput, annotations map[string]string) *serverscom.L7LoadBalancerCreateInput {
+func FillLBWithIngressAnnotations(lbInput *serverscom.L7LoadBalancerCreateInput, annotations map[string]string) (*serverscom.L7LoadBalancerCreateInput, error) {
 	// LBStoreLogsRegionCode annotation
 	if value, ok := annotations[LBStoreLogsRegionCode]; ok {
-		val, err := strconv.Atoi(value)
-		if err == nil {
-			lbInput.StoreLogsRegionID = &val
+		if regionID, found := GetStorageRegionIDByCode(value); found {
+			lbInput.StoreLogsRegionID = &regionID
+			storeLogs := true
+			lbInput.StoreLogs = &storeLogs
 		}
 	}
 
 	// LBGeoIPEnabled annotation
 	if value, ok := annotations[LBGeoIPEnabled]; ok {
 		val, err := strconv.ParseBool(value)
-		if err == nil {
-			lbInput.Geoip = &val
+		if err != nil {
+			return lbInput, err
 		}
+		lbInput.Geoip = &val
 	}
 
 	// LBMinTLSVersion annotation
@@ -38,5 +40,5 @@ func FillLBWithIngressAnnotations(lbInput *serverscom.L7LoadBalancerCreateInput,
 		}
 	}
 
-	return lbInput
+	return lbInput, nil
 }

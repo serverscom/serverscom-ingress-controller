@@ -53,7 +53,9 @@ func TestSyncCertificate(t *testing.T) {
 	newCert := serverscom.SSLCertificateCustom{Sha1Fingerprint: newFingerprint}
 	startTime := time.Now()
 
-	manager := NewManager(sslHandler, nil)
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.SSLCertificates = sslHandler
+	manager := NewManager(client, nil)
 
 	t.Run("Can't get ssl certs list", func(t *testing.T) {
 		g := NewWithT(t)
@@ -152,6 +154,45 @@ func TestGet(t *testing.T) {
 		manager.resources[fingerprint] = &SslCertificate{}
 
 		_, err := manager.Get(fingerprint)
+		g.Expect(err).To(HaveOccurred())
+	})
+}
+
+func TestGetByID(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	sslHandler := mocks.NewMockSSLCertificatesService(mockCtrl)
+
+	client := serverscom.NewClientWithEndpoint("", "")
+	client.SSLCertificates = sslHandler
+	manager := NewManager(client, nil)
+
+	t.Run("Certificate found by id", func(t *testing.T) {
+		g := NewWithT(t)
+
+		expectedCert := &serverscom.SSLCertificate{
+			ID: "someid",
+		}
+
+		sslHandler.EXPECT().
+			GetCustom(gomock.Any(), "someid").
+			Return(&serverscom.SSLCertificateCustom{ID: "someid"}, nil)
+
+		cert, err := manager.GetByID("someid")
+		g.Expect(err).To(BeNil())
+		g.Expect(cert).To(Equal(expectedCert))
+	})
+
+	t.Run("Certificate not found by id", func(t *testing.T) {
+		g := NewWithT(t)
+
+		sslHandler.EXPECT().
+			GetCustom(gomock.Any(), "non-exist").
+			Return(nil, errors.New("some error"))
+
+		cert, err := manager.GetByID("non-exist")
+		g.Expect(cert).To(BeNil())
 		g.Expect(err).To(HaveOccurred())
 	})
 }

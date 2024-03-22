@@ -8,36 +8,49 @@ import (
 )
 
 func TestFillLBWithIngressAnnotations(t *testing.T) {
-	g := NewWithT(t)
-
 	lbInput := &serverscom.L7LoadBalancerCreateInput{
 		UpstreamZones: []serverscom.L7UpstreamZoneInput{
 			{TLSPreset: new(string)},
 			{TLSPreset: new(string)},
 		},
 	}
+	t.Run("Not existing region code", func(t *testing.T) {
+		g := NewWithT(t)
+		annotations := map[string]string{
+			LBStoreLogsRegionCode: "notexist",
+		}
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
+		g.Expect(err).To(BeNil())
+		g.Expect(result.StoreLogs).To(BeNil())
+		g.Expect(result.StoreLogsRegionID).To(BeNil())
+	})
 
-	invalidAnnotations := map[string]string{
-		LBStoreLogsRegionCode: "",
-		LBGeoIPEnabled:        "invalid",
-	}
-	result := FillLBWithIngressAnnotations(lbInput, invalidAnnotations)
-	g.Expect(result.StoreLogsRegionID).To(BeNil())
-	g.Expect(result.Geoip).To(BeNil())
+	t.Run("Invalid geoipEnabled value", func(t *testing.T) {
+		g := NewWithT(t)
+		annotations := map[string]string{
+			LBGeoIPEnabled: "invalid",
+		}
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
+		g.Expect(err.Error()).To(BeEquivalentTo(`strconv.ParseBool: parsing "invalid": invalid syntax`))
+		g.Expect(result).NotTo(BeNil())
+	})
 
-	annotations := map[string]string{
-		LBStoreLogsRegionCode: "1",
-		LBGeoIPEnabled:        "true",
-		LBMinTLSVersion:       "TLSv1.3",
-	}
+	t.Run("Valid annotations", func(t *testing.T) {
+		g := NewWithT(t)
+		annotations := map[string]string{
+			LBStoreLogsRegionCode: "US01",
+			LBGeoIPEnabled:        "true",
+			LBMinTLSVersion:       "TLSv1.3",
+		}
 
-	result = FillLBWithIngressAnnotations(lbInput, annotations)
-	g.Expect(result).NotTo(BeNil())
+		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
+		g.Expect(err).To(BeNil())
+		g.Expect(result).NotTo(BeNil())
 
-	storeLogsRegionID := 1
-	g.Expect(*result.StoreLogsRegionID).To(Equal(storeLogsRegionID))
-	g.Expect(*result.Geoip).To(BeTrue())
-	for _, uz := range result.UpstreamZones {
-		g.Expect(*uz.TLSPreset).To(Equal("TLSv1.3"))
-	}
+		g.Expect(*result.StoreLogsRegionID).To(Equal(1))
+		g.Expect(*result.Geoip).To(BeTrue())
+		for _, uz := range result.UpstreamZones {
+			g.Expect(*uz.TLSPreset).To(Equal("TLSv1.3"))
+		}
+	})
 }

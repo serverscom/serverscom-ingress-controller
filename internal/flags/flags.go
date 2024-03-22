@@ -29,6 +29,9 @@ func ParseFlags() (*controller.Configuration, error) {
 
 		resyncPeriod = flags.Duration("sync-period", 0,
 			`Period at which the controller forces the repopulation of its local object stores. Disabled by default.`)
+
+		certManagerPrefix = flags.String("cert-manager-prefix", "sc-certmgr-cert-id-",
+			`Cert manager prefix is used in ingress tls secret name to determine should we lookup for cert from API or not. Default 'sc-certmgr-cert-id-'.`)
 	)
 
 	flags.AddGoFlagSet(flag.CommandLine)
@@ -42,6 +45,7 @@ func ParseFlags() (*controller.Configuration, error) {
 		LeaderElectionCfg: config.DefaultLeaderElectionConfiguration(),
 		ResyncPeriod:      *resyncPeriod,
 		IngressClass:      *ingressClass,
+		CertManagerPrefix: *certManagerPrefix,
 	}
 
 	k8sopts.BindLeaderElectionFlags(conf.LeaderElectionCfg, flags)

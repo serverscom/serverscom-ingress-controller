@@ -7,6 +7,10 @@ import (
 	v1 "k8s.io/api/networking/v1"
 )
 
+const (
+	activeStatus = "active"
+)
+
 // GetLoadBalancerName compose a load balancer name from ingress object
 func GetLoadBalancerName(ing *v1.Ingress) string {
 	ret := "a" + string(ing.UID)
@@ -15,4 +19,9 @@ func GetLoadBalancerName(ing *v1.Ingress) string {
 		ret = ret[:32]
 	}
 	return fmt.Sprintf("ingress-%s", ret)
+}
+
+// IsActiveStatus determines if lb has an active status
+func IsActiveStatus(status string) bool {
+	return strings.EqualFold(status, activeStatus)
 }

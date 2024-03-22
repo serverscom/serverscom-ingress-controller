@@ -1,6 +1,9 @@
 package sync
 
 import (
+	"context"
+
+	"github.com/jonboulle/clockwork"
 	serverscom "github.com/serverscom/serverscom-go-client/pkg"
 	"github.com/serverscom/serverscom-ingress-controller/internal/ingress/controller/store"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/loadbalancer"
@@ -12,23 +15,29 @@ import (
 
 // Syncer describes a sync interface
 type Syncer interface {
-	SyncTLS(ingress *networkv1.Ingress) (map[string]string, error)
-	SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) error
+	SyncTLS(ingress *networkv1.Ingress, certManagerPrefix string) (map[string]string, error)
+	SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serverscom.L7LoadBalancer, error)
 	CleanupLBs(ingressClass string) error
+	SyncStatus(ctx context.Context, lb *serverscom.L7LoadBalancer) (*serverscom.L7LoadBalancer, error)
 }
 
 // SyncManager represents a sync manager
 type SyncManager struct {
-	tls   tls.TLSManagerInterface
-	lb    loadbalancer.LBManagerInterface
-	store store.Storer
+	tlsMgr tls.TLSManagerInterface
+	lbMgr  loadbalancer.LBManagerInterface
+	store  store.Storer
+	clock  clockwork.Clock
 }
 
 // New creates a new sync manager
-func New(tlsManager tls.TLSManagerInterface, lbManager loadbalancer.LBManagerInterface, store store.Storer) *SyncManager {
+func New(tlsManager tls.TLSManagerInterface,
+	lbManager loadbalancer.LBManagerInterface,
+	store store.Storer,
+	clock clockwork.Clock) *SyncManager {
 	return &SyncManager{
-		tls:   tlsManager,
-		lb:    lbManager,
-		store: store,
+		tlsMgr: tlsManager,
+		lbMgr:  lbManager,
+		store:  store,
+		clock:  clock,
 	}
 }
