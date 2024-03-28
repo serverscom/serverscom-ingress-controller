@@ -213,12 +213,10 @@ func New(
 				recorder.Eventf(newIng, corev1.EventTypeWarning, "CacheKey", err.Error())
 				return
 			}
-			if !ingress.IsScIngress(newIng, ingressClass) {
-				if ingress.IsScIngress(oldIng, ingressClass) {
-					klog.V(4).Infof("Ingress %v class was changed, enqueuing", key)
-					recorder.Eventf(newIng, corev1.EventTypeNormal, "UpdateScheduled", key)
-					queue.Add(key)
-				}
+			if ingress.IsScIngress(oldIng, ingressClass) || ingress.IsScIngress(newIng, ingressClass) {
+				klog.V(3).Infof("Ingress %v updated, enqueuing", key)
+				recorder.Eventf(newIng, corev1.EventTypeNormal, "UpdateScheduled", key)
+				queue.Add(key)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
