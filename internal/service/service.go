@@ -133,7 +133,7 @@ func (s *Service) SyncToPortal(key string) error {
 				Ingress: ingress,
 			},
 		}
-		ingClient := s.KubeClient.NetworkingV1().Ingresses(s.namespace)
+		ingClient := s.KubeClient.NetworkingV1().Ingresses(ing.Namespace)
 		_, err = ingClient.UpdateStatus(context.Background(), ing, metav1.UpdateOptions{})
 		if err != nil {
 			s.recorder.Eventf(ing, v1.EventTypeWarning, "UpdateStatus", err.Error())
