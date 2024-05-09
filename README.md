@@ -10,9 +10,26 @@ This is an example how an Ingress object with an annotation may look like:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: example-ingress
+  name: minimal-ingress
   annotations:
     servers.com/load-balancer-geo-ip-enabled: "true"
+spec:
+  ingressClassName: serverscom
+  tls:
+    - hosts:
+        - example.com
+      secretName: testsecret-tls
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginxdemo
+                port:
+                  number: 80
 ```
 
 [![GitHub Actions status](https://github.com/serverscom/serverscom-ingress-controller/workflows/Test/badge.svg)](https://github.com/serverscom/serverscom-ingress-controller/actions)
