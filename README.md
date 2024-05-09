@@ -7,12 +7,12 @@ You can find more details on the Servers.com Ingress controller and peculiaritie
 This is an example how an Ingress object with an annotation may look like:
 
 ```
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: example-service
+  name: example-ingress
   annotations:
-    servers.com/load-balancer-balancing-algorithm: "random_least_connections"
+    servers.com/load-balancer-geo-ip-enabled: "true"
 ```
 
 [![GitHub Actions status](https://github.com/serverscom/serverscom-ingress-controller/workflows/Test/badge.svg)](https://github.com/serverscom/serverscom-ingress-controller/actions)
