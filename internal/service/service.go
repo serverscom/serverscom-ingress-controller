@@ -138,9 +138,11 @@ func (s *Service) SyncToPortal(key string) error {
 		if err != nil {
 			s.recorder.Eventf(ing, v1.EventTypeWarning, "UpdateStatus", err.Error())
 		}
+
+		s.recorder.Eventf(ing, v1.EventTypeNormal, "Synced", "Successfully synced")
 	}()
 
-	s.recorder.Eventf(ing, v1.EventTypeNormal, "Synced", "Successfully synced to portal")
+	s.recorder.Eventf(ing, v1.EventTypeNormal, "Created", "Successfully created")
 
 	return nil
 }

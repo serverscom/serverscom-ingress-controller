@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	scIngressClassName    = "sc-ingress"
+	scIngressClassName    = "serverscom"
 	nonScIngressClassName = "not-sc-ingress"
 	scIngress             = &networkv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -200,4 +201,12 @@ func TestGetIngressServiceInfo(t *testing.T) {
 	g.Expect(serviceInfo[serviceName].NodePort).To(Equal(30000))
 	g.Expect(serviceInfo[serviceName].NodeIps).To(ConsistOf("192.168.1.1"))
 	g.Expect(serviceInfo[serviceName].Annotations).To(HaveKeyWithValue("key", "value"))
+
+	// check if service doens't have NodePort
+	service.Spec.Ports[0].NodePort = 0
+	s.listers.Service.Update(service)
+
+	serviceInfo, err = s.GetIngressServiceInfo(ingress)
+	expectedErr := errors.New("service doesn't have NodePort, only services with type 'NodePort' or 'LoadBalancer' supported")
+	g.Expect(err).To(Equal(expectedErr))
 }

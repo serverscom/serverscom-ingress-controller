@@ -1,6 +1,7 @@
 package loadbalancer
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -197,6 +198,10 @@ func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[
 		uZInput = *annotations.FillLBUpstreamZoneWithServiceAnnotations(&uZInput, service.Annotations)
 		upstreamZones = append(upstreamZones, uZInput)
 	}
+	if len(vhostZones) == 0 || len(upstreamZones) == 0 {
+		return nil, errors.New("vhost or upstream can't be empty, can't continue")
+	}
+
 	locIdStr := config.FetchEnv("SC_LOCATION_ID", "1")
 	locId, err := strconv.Atoi(locIdStr)
 	if err != nil {

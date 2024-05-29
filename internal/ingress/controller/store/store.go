@@ -74,7 +74,7 @@ func (s *Store) GetNodesIpList() []string {
 	return s.listers.Node.NodesIpList()
 }
 
-// GetSecret returns the Secret matching key.
+// GetIngressServiceInfo returns ingress services info.
 func (s *Store) GetIngressServiceInfo(ingress *networkv1.Ingress) (map[string]ServiceInfo, error) {
 	return getIngressServiceInfo(ingress, s)
 }

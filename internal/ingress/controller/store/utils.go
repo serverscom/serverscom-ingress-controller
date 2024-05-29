@@ -46,6 +46,8 @@ func getIngressServiceInfo(ingress *networkv1.Ingress, store Storer) (map[string
 							sTmp.Hosts = append(sTmp.Hosts, rule.Host)
 							servicesInfo[serviceName] = sTmp
 						}
+					} else {
+						return nil, fmt.Errorf("service doesn't have NodePort, only services with type 'NodePort' or 'LoadBalancer' supported")
 					}
 					break
 				}

@@ -296,10 +296,9 @@ func TestTranslateIngressToLB(t *testing.T) {
 		g := NewWithT(t)
 		storeHandler.EXPECT().GetIngressServiceInfo(ingress).Return(make(map[string]store.ServiceInfo), nil)
 		lbInput, err := manager.TranslateIngressToLB(ingress, sslCerts)
-		g.Expect(err).To(BeNil())
-		g.Expect(lbInput).NotTo(BeNil())
-		g.Expect(lbInput.UpstreamZones).To(BeEmpty())
-		g.Expect(lbInput.VHostZones).To(BeEmpty())
+		expectedErr := errors.New("vhost or upstream can't be empty, can't continue")
+		g.Expect(err).To(Equal(expectedErr))
+		g.Expect(lbInput).To(BeNil())
 	})
 }
 
