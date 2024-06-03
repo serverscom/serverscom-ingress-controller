@@ -11,7 +11,7 @@ import (
 func TestIsScIngress(t *testing.T) {
 	g := NewWithT(t)
 
-	defaultClass := DefaultScIngressClass
+	defaultClass := "serverscom"
 	otherClass := "other-class"
 
 	g.Expect(IsScIngress(&v1.Ingress{}, "")).To(BeFalse())

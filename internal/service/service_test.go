@@ -179,7 +179,7 @@ func TestSyncToPortal(t *testing.T) {
 			}
 		}
 		g.Expect(events).To(ContainElements(
-			"Normal Synced Successfully synced to portal",
+			"Normal Synced Successfully synced",
 			`Warning UpdateStatus ingresses.networking.k8s.io "test-ingress" not found`,
 		))
 	})
@@ -209,7 +209,7 @@ func TestSyncToPortal(t *testing.T) {
 
 		select {
 		case e := <-recorder.Events:
-			expectedEvent := "Normal Synced Successfully synced to portal"
+			expectedEvent := "Normal Created Successfully created"
 			g.Expect(e).To(BeEquivalentTo(expectedEvent))
 		case <-time.After(time.Second * 1):
 			t.Fatal("Timeout waiting for event")

@@ -13,6 +13,10 @@ import (
 	k8sopts "k8s.io/component-base/config/options"
 )
 
+const (
+	DefaultScIngressClass = "serverscom"
+)
+
 // ParseFlags parses os args and map them to controller configuration
 func ParseFlags() (*controller.Configuration, error) {
 	var (
@@ -24,7 +28,7 @@ func ParseFlags() (*controller.Configuration, error) {
 		watchNamespace = flags.String("watch-namespace", v1.NamespaceAll,
 			`Namespace to watch for Ingress/Services/Endpoints.`)
 
-		ingressClass = flags.String("ingress-class", "",
+		ingressClass = flags.String("ingress-class", DefaultScIngressClass,
 			`If set, overrides what ingress classes are managed by the controller.`)
 
 		resyncPeriod = flags.Duration("sync-period", 0,
