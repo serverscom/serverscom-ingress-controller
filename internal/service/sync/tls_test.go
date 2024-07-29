@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -38,6 +39,11 @@ func TestSyncTLS(t *testing.T) {
 				},
 			},
 		},
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				TLS_ANNOTATION_PREFIX + "example1.com": "test-secret",
+			},
+		},
 	}
 	ingress.Namespace = "default"
 
@@ -51,9 +57,9 @@ func TestSyncTLS(t *testing.T) {
 
 	t.Run("Successfully syncing TLS", func(t *testing.T) {
 		g := NewWithT(t)
-		storeHandler.EXPECT().GetSecret("default/test-secret").Return(secret, nil)
+		storeHandler.EXPECT().GetSecret("default/test-secret").Return(secret, nil).Times(2)
 
-		tlsManagerHandler.EXPECT().HasRegistration(testdata.ValidPEMFingerprint).Return(false)
+		tlsManagerHandler.EXPECT().HasRegistration(testdata.ValidPEMFingerprint).Return(false).Times(2)
 
 		expectedCert := &client.SSLCertificate{ID: "cert-id"}
 		tlsManagerHandler.EXPECT().SyncCertificate(
@@ -62,11 +68,12 @@ func TestSyncTLS(t *testing.T) {
 			gomock.Any(),
 			gomock.Any(),
 			gomock.Any()).
-			Return(expectedCert, nil)
+			Return(expectedCert, nil).Times(2)
 
 		result, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(BeNil())
 		g.Expect(result).To(HaveKeyWithValue("example.com", "cert-id"))
+		g.Expect(result).To(HaveKeyWithValue("example1.com", "cert-id"))
 	})
 
 	t.Run("Error fetching secret", func(t *testing.T) {
@@ -131,12 +138,14 @@ func TestSyncTLS(t *testing.T) {
 		g := NewWithT(t)
 
 		ingress.Spec.TLS[0].SecretName = scCertManagerPrefix + "someid"
+		ingress.Annotations[TLS_ANNOTATION_PREFIX+"example1.com"] = scCertManagerPrefix + "someid"
 		tlsManagerHandler.EXPECT().
 			GetByID("someid").
-			Return(&serverscom.SSLCertificate{ID: "someid"}, nil)
+			Return(&serverscom.SSLCertificate{ID: "someid"}, nil).Times(2)
 
 		result, err := syncManager.SyncTLS(ingress, scCertManagerPrefix)
 		g.Expect(err).To(BeNil())
 		g.Expect(result).To(HaveKeyWithValue("example.com", "someid"))
+		g.Expect(result).To(HaveKeyWithValue("example1.com", "someid"))
 	})
 }
