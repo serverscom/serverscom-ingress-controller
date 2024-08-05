@@ -9,23 +9,30 @@ import (
 	networkv1 "k8s.io/api/networking/v1"
 )
 
+const (
+	TLS_ANNOTATION_PREFIX = "servers.com/certificate-"
+)
+
 // SyncTLS syncs ingress tls certs stored in secrets to portal.
+// If secret name starts with certManagerPrefix-<certID> we looking for cert from API
+// Due to secret name don't support upperCase for such cases we additionally checks annotations
+// with TLS_ANNOTATION_PREFIX which overrides ingress tls certs for matching hosts.
 // Returns map of hosts to portal cert id
 func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix string) (map[string]string, error) {
 	var sslCerts = make(map[string]string)
-	for _, tls := range ingress.Spec.TLS {
-		if strings.HasPrefix(tls.SecretName, certManagerPrefix) {
-			id := strings.TrimPrefix(tls.SecretName, certManagerPrefix)
+
+	hostsSecrets := mergeTLSWithAnnotations(ingress)
+	for host, secretName := range hostsSecrets {
+		if strings.HasPrefix(secretName, certManagerPrefix) {
+			id := strings.TrimPrefix(secretName, certManagerPrefix)
 			certificate, err := s.tlsMgr.GetByID(id)
 			if err != nil {
 				return nil, fmt.Errorf("fetching cert with id %q from API failed: %v", id, err)
 			}
-			for _, host := range tls.Hosts {
-				sslCerts[host] = certificate.ID
-			}
+			sslCerts[host] = certificate.ID
 			continue
 		}
-		sKey := ingress.Namespace + "/" + tls.SecretName
+		sKey := ingress.Namespace + "/" + secretName
 		secret, err := s.store.GetSecret(sKey)
 		if err != nil {
 			return nil, fmt.Errorf("fetching secret with key %q from store failed: %v", sKey, err)
@@ -47,28 +54,22 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 		primary, chain := tlsmanager.SplitCerts(cert)
 
 		fingerprint := tlsmanager.GetPemFingerprint(primary)
-
 		if fingerprint == "" {
 			return nil, fmt.Errorf("can't calculate 'tls.crt' fingerprint for %s", string(cert))
 		}
 
 		if s.tlsMgr.HasRegistration(fingerprint) {
 			certificate, err := s.tlsMgr.Get(fingerprint)
-
 			if err != nil {
 				return nil, err
 			}
-
-			for _, host := range tls.Hosts {
-				sslCerts[host] = certificate.ID
-			}
-
+			sslCerts[host] = certificate.ID
 			continue
 		}
 
 		certificate, err := s.tlsMgr.SyncCertificate(
 			fingerprint,
-			tls.SecretName,
+			secretName,
 			primary,
 			tlsmanager.StripSpaces(key),
 			chain,
@@ -78,10 +79,31 @@ func (s *SyncManager) SyncTLS(ingress *networkv1.Ingress, certManagerPrefix stri
 			return nil, err
 		}
 
-		for _, host := range tls.Hosts {
-			sslCerts[host] = certificate.ID
-		}
-
+		sslCerts[host] = certificate.ID
 	}
 	return sslCerts, nil
+}
+
+// mergeTLSWithAnnotations merge info about host and associated secret from ingress.Spec.TLS and ingress.Annotations
+// returns map[host]secret
+func mergeTLSWithAnnotations(ingress *networkv1.Ingress) map[string]string {
+	res := make(map[string]string)
+
+	for _, tls := range ingress.Spec.TLS {
+		sName := tls.SecretName
+		for _, host := range tls.Hosts {
+			res[host] = sName
+		}
+	}
+
+	// annotations overrides settings from tls
+	for k, v := range ingress.Annotations {
+		if strings.HasPrefix(k, TLS_ANNOTATION_PREFIX) {
+			if host, ok := strings.CutPrefix(k, TLS_ANNOTATION_PREFIX); ok {
+				res[host] = v
+			}
+		}
+	}
+
+	return res
 }
