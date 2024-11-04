@@ -122,6 +122,10 @@ func (s *Service) SyncToPortal(key string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), LBPollTimeout)
 		defer cancel()
 		activeLB, err := s.syncManager.SyncStatus(ctx, lb)
+		if err != nil {
+			s.recorder.Eventf(ing, v1.EventTypeWarning, "SyncStatus", err.Error())
+			return
+		}
 
 		var ingress []networkv1.IngressLoadBalancerIngress
 		for _, ip := range activeLB.ExternalAddresses {
@@ -134,9 +138,10 @@ func (s *Service) SyncToPortal(key string) error {
 			},
 		}
 		ingClient := s.KubeClient.NetworkingV1().Ingresses(ing.Namespace)
-		_, err = ingClient.UpdateStatus(context.Background(), ing, metav1.UpdateOptions{})
+		_, err = ingClient.UpdateStatus(ctx, ing, metav1.UpdateOptions{})
 		if err != nil {
 			s.recorder.Eventf(ing, v1.EventTypeWarning, "UpdateStatus", err.Error())
+			return
 		}
 
 		s.recorder.Eventf(ing, v1.EventTypeNormal, "Synced", "Successfully synced")
