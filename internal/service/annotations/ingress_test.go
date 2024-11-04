@@ -41,6 +41,7 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 			LBStoreLogsRegionCode: "US01",
 			LBGeoIPEnabled:        "true",
 			LBMinTLSVersion:       "TLSv1.3",
+			LBClusterID:           "123",
 		}
 
 		result, err := FillLBWithIngressAnnotations(lbInput, annotations)
@@ -49,6 +50,7 @@ func TestFillLBWithIngressAnnotations(t *testing.T) {
 
 		g.Expect(*result.StoreLogsRegionID).To(Equal(1))
 		g.Expect(*result.Geoip).To(BeTrue())
+		g.Expect(*result.ClusterID).To(Equal("123"))
 		for _, uz := range result.UpstreamZones {
 			g.Expect(*uz.TLSPreset).To(Equal("TLSv1.3"))
 		}
