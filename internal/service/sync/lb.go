@@ -25,6 +25,11 @@ func (s *SyncManager) SyncL7LB(lb *serverscom.L7LoadBalancerCreateInput) (*serve
 			Geoip:             lb.Geoip,
 			VHostZones:        lb.VHostZones,
 			UpstreamZones:     lb.UpstreamZones,
+			ClusterID:         lb.ClusterID,
+		}
+		if lbUpdateInput.ClusterID == nil {
+			lbUpdateInput.SharedCluster = new(bool)
+			*lbUpdateInput.SharedCluster = true
 		}
 		result, err, _ := s.lbMgr.UpdateLoadBalancer(lbUpdateInput)
 		return result, err

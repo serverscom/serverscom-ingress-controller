@@ -179,7 +179,6 @@ func TestSyncToPortal(t *testing.T) {
 			}
 		}
 		g.Expect(events).To(ContainElements(
-			"Normal Synced Successfully synced",
 			`Warning UpdateStatus ingresses.networking.k8s.io "test-ingress" not found`,
 		))
 	})

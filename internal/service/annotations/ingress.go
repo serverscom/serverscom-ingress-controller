@@ -11,6 +11,7 @@ const (
 	LBGeoIPEnabled          = "servers.com/load-balancer-geo-ip-enabled"
 	LBRealIPTrustedNetworks = "servers.com/load-balancer-real-ip-trusted-networks" // TODO not implemented yet
 	LBMinTLSVersion         = "servers.com/load-balancer-min-tls-version"
+	LBClusterID             = "servers.com/cluster-id"
 )
 
 // FillLBWithIngressAnnotations prepares the LB input based on annotations.
@@ -38,6 +39,11 @@ func FillLBWithIngressAnnotations(lbInput *serverscom.L7LoadBalancerCreateInput,
 		for i := range lbInput.UpstreamZones {
 			lbInput.UpstreamZones[i].TLSPreset = &value
 		}
+	}
+
+	// LBClusterID annotation
+	if id, ok := annotations[LBClusterID]; ok && id != "" {
+		lbInput.ClusterID = &id
 	}
 
 	return lbInput, nil
