@@ -20,6 +20,7 @@ import (
 type MockTLSManagerInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockTLSManagerInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockTLSManagerInterfaceMockRecorder is the mock recorder for MockTLSManagerInterface.

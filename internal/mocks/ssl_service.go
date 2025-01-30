@@ -21,6 +21,7 @@ import (
 type MockSSLCertificatesService struct {
 	ctrl     *gomock.Controller
 	recorder *MockSSLCertificatesServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockSSLCertificatesServiceMockRecorder is the mock recorder for MockSSLCertificatesService.
@@ -69,6 +70,34 @@ func (mr *MockSSLCertificatesServiceMockRecorder) CreateCustom(ctx, input any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCustom", reflect.TypeOf((*MockSSLCertificatesService)(nil).CreateCustom), ctx, input)
 }
 
+// DeleteCustom mocks base method.
+func (m *MockSSLCertificatesService) DeleteCustom(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCustom", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCustom indicates an expected call of DeleteCustom.
+func (mr *MockSSLCertificatesServiceMockRecorder) DeleteCustom(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCustom", reflect.TypeOf((*MockSSLCertificatesService)(nil).DeleteCustom), ctx, id)
+}
+
+// DeleteLE mocks base method.
+func (m *MockSSLCertificatesService) DeleteLE(ctx context.Context, id string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLE", ctx, id)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLE indicates an expected call of DeleteLE.
+func (mr *MockSSLCertificatesServiceMockRecorder) DeleteLE(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLE", reflect.TypeOf((*MockSSLCertificatesService)(nil).DeleteLE), ctx, id)
+}
+
 // GetCustom mocks base method.
 func (m *MockSSLCertificatesService) GetCustom(ctx context.Context, id string) (*serverscom.SSLCertificateCustom, error) {
 	m.ctrl.T.Helper()
@@ -82,4 +111,49 @@ func (m *MockSSLCertificatesService) GetCustom(ctx context.Context, id string) (
 func (mr *MockSSLCertificatesServiceMockRecorder) GetCustom(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCustom", reflect.TypeOf((*MockSSLCertificatesService)(nil).GetCustom), ctx, id)
+}
+
+// GetLE mocks base method.
+func (m *MockSSLCertificatesService) GetLE(ctx context.Context, id string) (*serverscom.SSLCertificateLE, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLE", ctx, id)
+	ret0, _ := ret[0].(*serverscom.SSLCertificateLE)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLE indicates an expected call of GetLE.
+func (mr *MockSSLCertificatesServiceMockRecorder) GetLE(ctx, id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLE", reflect.TypeOf((*MockSSLCertificatesService)(nil).GetLE), ctx, id)
+}
+
+// UpdateCustom mocks base method.
+func (m *MockSSLCertificatesService) UpdateCustom(ctx context.Context, id string, input serverscom.SSLCertificateUpdateCustomInput) (*serverscom.SSLCertificateCustom, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateCustom", ctx, id, input)
+	ret0, _ := ret[0].(*serverscom.SSLCertificateCustom)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateCustom indicates an expected call of UpdateCustom.
+func (mr *MockSSLCertificatesServiceMockRecorder) UpdateCustom(ctx, id, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateCustom", reflect.TypeOf((*MockSSLCertificatesService)(nil).UpdateCustom), ctx, id, input)
+}
+
+// UpdateLE mocks base method.
+func (m *MockSSLCertificatesService) UpdateLE(ctx context.Context, id string, input serverscom.SSLCertificateUpdateLEInput) (*serverscom.SSLCertificateLE, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLE", ctx, id, input)
+	ret0, _ := ret[0].(*serverscom.SSLCertificateLE)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateLE indicates an expected call of UpdateLE.
+func (mr *MockSSLCertificatesServiceMockRecorder) UpdateLE(ctx, id, input any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLE", reflect.TypeOf((*MockSSLCertificatesService)(nil).UpdateLE), ctx, id, input)
 }
