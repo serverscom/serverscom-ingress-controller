@@ -17,6 +17,8 @@ const (
 	AppHealthcheckChecksToPass   = "servers.com/app-healthcheck-checks-to-pass"
 	AppHealthcheckInterval       = "servers.com/app-healthcheck-interval"
 	AppHealthcheckJitter         = "servers.com/app-healthcheck-jitter"
+	LBIPHeader                   = "servers.com/load-balancer-ip-header"
+	LBIPSubnets                  = "servers.com/load-balancer-ip-subnets"
 )
 
 // FillLBVHostZoneWithServiceAnnotations prepares the LB vhost zone input based on annotations.
@@ -25,6 +27,16 @@ func FillLBVHostZoneWithServiceAnnotations(vZInput *serverscom.L7VHostZoneInput,
 	if value, ok := annotations[AppProtocol]; ok {
 		if strings.EqualFold(value, "http2") {
 			vZInput.HTTP2 = true
+		}
+	}
+
+	// LBIPHeader & LBIPSubnets annotations
+	if value, ok := annotations[LBIPHeader]; ok {
+		vZInput.RealIPHeader = new(serverscom.RealIPHeader)
+		vZInput.RealIPHeader.Name = ParseRealIPHeaderName(value)
+		if subnets, ok := annotations[LBIPSubnets]; ok {
+			s := strings.Split(strings.ReplaceAll(subnets, " ", ""), ",")
+			vZInput.RealIPHeader.Networks = s
 		}
 	}
 
@@ -82,4 +94,16 @@ func FillLBUpstreamZoneWithServiceAnnotations(uZInput *serverscom.L7UpstreamZone
 	}
 
 	return uZInput
+}
+
+// ParseRealIPHeaderName parses the Real IP Header Name from annotation
+func ParseRealIPHeaderName(input string) serverscom.RealIPHeaderName {
+	switch input {
+	case string(serverscom.RealIP):
+		return serverscom.RealIP
+	case string(serverscom.ForwardedFor):
+		return serverscom.ForwardedFor
+	default:
+		return ""
+	}
 }

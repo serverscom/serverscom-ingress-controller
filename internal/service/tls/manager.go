@@ -103,12 +103,13 @@ func (m *Manager) SyncCertificate(fingerprint, name string, cert, key, chain []b
 		return nil, err
 	}
 
-	sslCertificate.state = (*serverscom.SSLCertificate)(state)
+	sslCert := CustomToSSLCertificate(state)
+	sslCertificate.state = sslCert
 	sslCertificate.lastRefresh = time.Now()
 
 	m.resources[fingerprint] = &sslCertificate
 
-	return (*serverscom.SSLCertificate)(state), nil
+	return sslCert, nil
 }
 
 // Get gets an ssl from manager
@@ -136,5 +137,18 @@ func (m *Manager) GetByID(id string) (*serverscom.SSLCertificate, error) {
 		return nil, err
 	}
 
-	return (*serverscom.SSLCertificate)(customCert), nil
+	return CustomToSSLCertificate(customCert), nil
+}
+
+// CustomToSSLCertificate converts a serverscom SSLCertificateCustom to serverscom SSLCertificate
+func CustomToSSLCertificate(custom *serverscom.SSLCertificateCustom) *serverscom.SSLCertificate {
+	return &serverscom.SSLCertificate{
+		ID:              custom.ID,
+		Name:            custom.Name,
+		Sha1Fingerprint: custom.Sha1Fingerprint,
+		Labels:          custom.Labels,
+		Expires:         custom.Expires,
+		Created:         custom.Created,
+		Updated:         custom.Updated,
+	}
 }
