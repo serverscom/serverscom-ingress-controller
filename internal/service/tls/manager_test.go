@@ -82,7 +82,6 @@ func TestSyncCertificate(t *testing.T) {
 		g.Expect(err).To(BeNil())
 		g.Expect(manager.resources[existFingerprint]).NotTo(BeNil())
 		g.Expect(manager.resources[existFingerprint].lastRefresh).To(BeTemporally(">", startTime))
-
 	})
 
 	t.Run("Certificate not found in list and creation successful", func(t *testing.T) {
@@ -103,11 +102,11 @@ func TestSyncCertificate(t *testing.T) {
 
 		result, err := manager.SyncCertificate(newFingerprint, name, cert, key, chain)
 
-		g.Expect(*result).To(BeEquivalentTo(newCert))
+		expectedCert := CustomToSSLCertificate(&newCert)
+		g.Expect(result).To(BeEquivalentTo(expectedCert))
 		g.Expect(err).To(BeNil())
 		g.Expect(manager.resources[newFingerprint]).NotTo(BeNil())
 		g.Expect(manager.resources[newFingerprint].lastRefresh).To(BeTemporally(">", startTime))
-
 	})
 
 	t.Run("Certificate not found in list and creation fails", func(t *testing.T) {

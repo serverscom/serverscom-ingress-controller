@@ -19,11 +19,15 @@ func TestFillLBVHostZoneWithServiceAnnotations(t *testing.T) {
 
 	annotations = map[string]string{
 		AppProtocol: "http2",
+		LBIPHeader:  "real_ip",
+		LBIPSubnets: "192.168.1.0/24, 10.0.0.0/8",
 	}
 
 	result = FillLBVHostZoneWithServiceAnnotations(vZInput, annotations)
 	g.Expect(result).NotTo(BeNil())
 	g.Expect(result.HTTP2).To(BeTrue())
+	g.Expect(result.RealIPHeader.Name).To(BeEquivalentTo(string(serverscom.RealIP)))
+	g.Expect(result.RealIPHeader.Networks).To(BeEquivalentTo([]string{"192.168.1.0/24", "10.0.0.0/8"}))
 }
 
 func TestFillLBUpstreamZoneWithServiceAnnotations(t *testing.T) {
