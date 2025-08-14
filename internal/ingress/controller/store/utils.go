@@ -10,6 +10,7 @@ import (
 type ServiceInfo struct {
 	Hosts       []string
 	NodeIps     []string
+	Paths       []string
 	NodePort    int
 	Annotations map[string]string
 }
@@ -37,6 +38,7 @@ func getIngressServiceInfo(ingress *networkv1.Ingress, store Storer) (map[string
 						if _, ok := servicesInfo[serviceName]; !ok {
 							servicesInfo[serviceName] = ServiceInfo{
 								Hosts:       []string{rule.Host},
+								Paths:       []string{path.Path},
 								NodePort:    int(port.NodePort),
 								NodeIps:     nodeIps,
 								Annotations: service.Annotations,
@@ -44,6 +46,7 @@ func getIngressServiceInfo(ingress *networkv1.Ingress, store Storer) (map[string
 						} else {
 							sTmp := servicesInfo[serviceName]
 							sTmp.Hosts = append(sTmp.Hosts, rule.Host)
+							sTmp.Paths = append(sTmp.Paths, path.Path)
 							servicesInfo[serviceName] = sTmp
 						}
 					} else {

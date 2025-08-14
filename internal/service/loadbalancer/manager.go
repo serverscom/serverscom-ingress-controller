@@ -174,10 +174,12 @@ func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[
 				sslEnabled = true
 				vhostPorts = []int32{443}
 			}
-			locationZones = append(locationZones, serverscom.L7LocationZoneInput{
-				Location:   "/",
-				UpstreamID: upstreamId,
-			})
+			for _, p := range service.Paths {
+				locationZones = append(locationZones, serverscom.L7LocationZoneInput{
+					Location:   p,
+					UpstreamID: upstreamId,
+				})
+			}
 		}
 
 		vZInput := serverscom.L7VHostZoneInput{
