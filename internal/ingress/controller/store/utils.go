@@ -3,21 +3,27 @@ package store
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 )
 
-// ServiceInfo represents helper struct for ingress service
-type ServiceInfo struct {
-	Hosts       []string
-	NodeIps     []string
-	Paths       []string
-	NodePort    int
-	Annotations map[string]string
+// PathInfo represents info about a path in the ingress controller
+type PathInfo struct {
+	Path     string
+	Service  *corev1.Service
+	NodePort int
+	NodeIps  []string
 }
 
-// GetIngressServiceInfo get services info from ingress
-func getIngressServiceInfo(ingress *networkv1.Ingress, store Storer) (map[string]ServiceInfo, error) {
-	servicesInfo := make(map[string]ServiceInfo)
+// HostInfo represents info about a host in the ingress controller
+type HostInfo struct {
+	Host  string
+	Paths []PathInfo
+}
+
+// getIngressHostsInfo get hosts info from ingress
+func getIngressHostsInfo(ingress *networkv1.Ingress, store Storer) (map[string]HostInfo, error) {
+	hostsInfo := make(map[string]HostInfo)
 	nodeIps := store.GetNodesIpList()
 
 	for _, rule := range ingress.Spec.Rules {
@@ -25,38 +31,41 @@ func getIngressServiceInfo(ingress *networkv1.Ingress, store Storer) (map[string
 			continue
 		}
 
+		hInfo := hostsInfo[rule.Host]
+		hInfo.Host = rule.Host
+
 		for _, path := range rule.HTTP.Paths {
-			service, err := store.GetService(ingress.Namespace + "/" + path.Backend.Service.Name)
+			svc, err := store.GetService(ingress.Namespace + "/" + path.Backend.Service.Name)
 			if err != nil {
 				return nil, fmt.Errorf("error getting service: %v", err)
 			}
 
-			for _, port := range service.Spec.Ports {
+			var nodePort int32
+			found := false
+			for _, port := range svc.Spec.Ports {
 				if port.Port == path.Backend.Service.Port.Number {
-					if port.NodePort != 0 {
-						serviceName := path.Backend.Service.Name
-						if _, ok := servicesInfo[serviceName]; !ok {
-							servicesInfo[serviceName] = ServiceInfo{
-								Hosts:       []string{rule.Host},
-								Paths:       []string{path.Path},
-								NodePort:    int(port.NodePort),
-								NodeIps:     nodeIps,
-								Annotations: service.Annotations,
-							}
-						} else {
-							sTmp := servicesInfo[serviceName]
-							sTmp.Hosts = append(sTmp.Hosts, rule.Host)
-							sTmp.Paths = append(sTmp.Paths, path.Path)
-							servicesInfo[serviceName] = sTmp
-						}
-					} else {
-						return nil, fmt.Errorf("service doesn't have NodePort, only services with type 'NodePort' or 'LoadBalancer' supported")
+					if port.NodePort == 0 {
+						return nil, fmt.Errorf("service %s has no NodePort (only NodePort/LoadBalancer supported)", svc.Name)
 					}
+					nodePort = port.NodePort
+					found = true
 					break
 				}
 			}
+			if !found {
+				return nil, fmt.Errorf("service %s: port %d not found", svc.Name, path.Backend.Service.Port.Number)
+			}
+
+			hInfo.Paths = append(hInfo.Paths, PathInfo{
+				Path:     path.Path,
+				Service:  svc,
+				NodePort: int(nodePort),
+				NodeIps:  nodeIps,
+			})
 		}
+
+		hostsInfo[rule.Host] = hInfo
 	}
 
-	return servicesInfo, nil
+	return hostsInfo, nil
 }

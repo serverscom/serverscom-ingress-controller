@@ -37,7 +37,7 @@ type Storer interface {
 	ListIngress() []*networkv1.Ingress
 	GetService(key string) (*corev1.Service, error)
 	GetNodesIpList() []string
-	GetIngressServiceInfo(ingress *networkv1.Ingress) (map[string]ServiceInfo, error)
+	GetIngressHostsInfo(ingress *networkv1.Ingress) (map[string]HostInfo, error)
 }
 
 // Store represents cache store, implements Storer
@@ -75,8 +75,8 @@ func (s *Store) GetNodesIpList() []string {
 }
 
 // GetIngressServiceInfo returns ingress services info.
-func (s *Store) GetIngressServiceInfo(ingress *networkv1.Ingress) (map[string]ServiceInfo, error) {
-	return getIngressServiceInfo(ingress, s)
+func (s *Store) GetIngressHostsInfo(ingress *networkv1.Ingress) (map[string]HostInfo, error) {
+	return getIngressHostsInfo(ingress, s)
 }
 
 type Informer struct {
