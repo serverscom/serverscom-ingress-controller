@@ -12,6 +12,7 @@ import (
 	"github.com/serverscom/serverscom-ingress-controller/internal/mocks"
 	"github.com/serverscom/serverscom-ingress-controller/internal/service/annotations"
 	"go.uber.org/mock/gomock"
+	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -251,14 +252,59 @@ func TestTranslateIngressToLB(t *testing.T) {
 	}
 	sslCerts := map[string]string{
 		"example.com": "ssl-cert-id",
+		"foo.com":     "ssl-cert-foo",
 	}
 
-	serviceInfo := map[string]store.ServiceInfo{
-		"service-key": {
-			Hosts:       []string{"example.com"},
-			NodePort:    30000,
-			NodeIps:     []string{"192.168.1.1"},
-			Annotations: map[string]string{annotations.LBBalancingAlgorithm: "round-robin"},
+	hostsInfo := map[string]store.HostInfo{
+		"example.com": {
+			Paths: []store.PathInfo{
+				{
+					Path:     "/api",
+					NodePort: 30000,
+					NodeIps:  []string{"192.168.1.1"},
+					Service: &corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "service-key",
+							Annotations: map[string]string{annotations.LBBalancingAlgorithm: "round-robin"},
+						},
+						Spec: corev1.ServiceSpec{
+							Ports: []corev1.ServicePort{{Port: 80, NodePort: 30000}},
+						},
+					},
+				},
+				{
+					Path:     "/local",
+					NodePort: 30001,
+					NodeIps:  []string{"192.168.1.1"},
+					Service: &corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "service-key2",
+							Annotations: map[string]string{annotations.LBBalancingAlgorithm: "least-connections"},
+						},
+						Spec: corev1.ServiceSpec{
+							Ports: []corev1.ServicePort{{Port: 81, NodePort: 30001}},
+						},
+					},
+				},
+			},
+		},
+		"foo.com": {
+			Paths: []store.PathInfo{
+				{
+					Path:     "/",
+					NodePort: 30002,
+					NodeIps:  []string{"192.168.1.2"},
+					Service: &corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:        "service-foo",
+							Annotations: map[string]string{annotations.LBBalancingAlgorithm: "round-robin"},
+						},
+						Spec: corev1.ServiceSpec{
+							Ports: []corev1.ServicePort{{Port: 80, NodePort: 30002}},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -271,22 +317,71 @@ func TestTranslateIngressToLB(t *testing.T) {
 
 	t.Run("Translate ingress to lb input successfully", func(t *testing.T) {
 		g := NewWithT(t)
-		storeHandler.EXPECT().GetIngressServiceInfo(ingress).Return(serviceInfo, nil)
+		storeHandler.EXPECT().GetIngressHostsInfo(ingress).Return(hostsInfo, nil)
 		lbInput, err := manager.TranslateIngressToLB(ingress, sslCerts)
 		g.Expect(err).To(BeNil())
 		g.Expect(lbInput).NotTo(BeNil())
 
+		g.Expect(lbInput.VHostZones).To(HaveLen(2))
+
+		for _, vz := range lbInput.VHostZones {
+			expectedID := fmt.Sprintf("vhost-zone-%s", vz.Domains[0])
+			g.Expect(vz.ID).To(Equal(expectedID))
+
+			g.Expect(vz.Domains).ToNot(BeEmpty())
+			g.Expect(vz.LocationZones).ToNot(BeEmpty())
+			g.Expect(vz.SSLCertID).ToNot(BeEmpty())
+
+			switch vz.Domains[0] {
+			case "example.com":
+				g.Expect(vz.SSLCertID).To(Equal("ssl-cert-id"))
+				g.Expect(vz.LocationZones).To(HaveLen(2))
+				g.Expect(vz.LocationZones[0].Location).To(Equal("/api"))
+				g.Expect(vz.LocationZones[1].Location).To(Equal("/local"))
+			case "foo.com":
+				g.Expect(vz.SSLCertID).To(Equal("ssl-cert-foo"))
+				g.Expect(vz.LocationZones).To(HaveLen(1))
+				g.Expect(vz.LocationZones[0].Location).To(Equal("/"))
+			default:
+				t.Fatalf("unexpected domain %s", vz.Domains[0])
+			}
+		}
+
+		expectedAlgorithmMethods := map[string]string{
+			"upstream-zone-service-key-30000":  "round-robin",
+			"upstream-zone-service-key2-30001": "least-connections",
+			"upstream-zone-service-foo-30002":  "round-robin",
+		}
+
+		g.Expect(lbInput.UpstreamZones).To(HaveLen(3))
+		upstreamIDs := make(map[string]struct{})
+		for _, uz := range lbInput.UpstreamZones {
+			if expected, ok := expectedAlgorithmMethods[uz.ID]; ok {
+				g.Expect(uz.Method).ToNot(BeNil())
+				g.Expect(*uz.Method).To(Equal(expected))
+			}
+			upstreamIDs[uz.ID] = struct{}{}
+			for _, u := range uz.Upstreams {
+				g.Expect([]string{"192.168.1.1", "192.168.1.2"}).To(ContainElement(u.IP))
+				g.Expect(u.Weight).To(Equal(int32(1)))
+			}
+		}
+		for _, host := range hostsInfo {
+			for _, p := range host.Paths {
+				upID := fmt.Sprintf("upstream-zone-%s-%d", p.Service.Name, p.NodePort)
+				_, exists := upstreamIDs[upID]
+				g.Expect(exists).To(BeTrue(), "upstream %s should exist", upID)
+			}
+		}
+
 		expectedLBName := "ingress-a123"
 		g.Expect(lbInput.Name).To(Equal(expectedLBName))
-		g.Expect(lbInput.VHostZones[0].Domains).To(ConsistOf("example.com"))
-		g.Expect(lbInput.VHostZones[0].SSLCertID).To(Equal("ssl-cert-id"))
-		g.Expect(*lbInput.UpstreamZones[0].Method).To(Equal("round-robin"))
 		g.Expect(*lbInput.Geoip).To(Equal(true))
 	})
 
 	t.Run("Services info fails", func(t *testing.T) {
 		g := NewWithT(t)
-		storeHandler.EXPECT().GetIngressServiceInfo(ingress).Return(nil, errors.New("error"))
+		storeHandler.EXPECT().GetIngressHostsInfo(ingress).Return(nil, errors.New("error"))
 		lbInput, err := manager.TranslateIngressToLB(ingress, sslCerts)
 		g.Expect(err).To(HaveOccurred())
 		g.Expect(lbInput).To(BeNil())
@@ -294,7 +389,7 @@ func TestTranslateIngressToLB(t *testing.T) {
 
 	t.Run("Services info is empty", func(t *testing.T) {
 		g := NewWithT(t)
-		storeHandler.EXPECT().GetIngressServiceInfo(ingress).Return(make(map[string]store.ServiceInfo), nil)
+		storeHandler.EXPECT().GetIngressHostsInfo(ingress).Return(make(map[string]store.HostInfo), nil)
 		lbInput, err := manager.TranslateIngressToLB(ingress, sslCerts)
 		expectedErr := errors.New("vhost or upstream can't be empty, can't continue")
 		g.Expect(err).To(Equal(expectedErr))

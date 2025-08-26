@@ -1,7 +1,7 @@
 package store
 
 import (
-	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -144,6 +144,7 @@ func TestGetIngressServiceInfo(t *testing.T) {
 	}
 	s.listers.Node.Add(node1)
 
+	hostname := "example.com"
 	serviceName := "test-service"
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,7 +173,7 @@ func TestGetIngressServiceInfo(t *testing.T) {
 		Spec: networkv1.IngressSpec{
 			Rules: []networkv1.IngressRule{
 				{
-					Host: "example.com",
+					Host: hostname,
 					IngressRuleValue: networkv1.IngressRuleValue{
 						HTTP: &networkv1.HTTPIngressRuleValue{
 							Paths: []networkv1.HTTPIngressPath{
@@ -193,20 +194,22 @@ func TestGetIngressServiceInfo(t *testing.T) {
 		},
 	}
 
-	serviceInfo, err := s.GetIngressServiceInfo(ingress)
+	hostsInfo, err := s.GetIngressHostsInfo(ingress)
 	g.Expect(err).To(BeNil())
+	g.Expect(hostsInfo[hostname].Paths).ToNot(BeEmpty())
 
-	g.Expect(serviceInfo).To(HaveKey(serviceName))
-	g.Expect(serviceInfo[serviceName].Hosts).To(ContainElement("example.com"))
-	g.Expect(serviceInfo[serviceName].NodePort).To(Equal(30000))
-	g.Expect(serviceInfo[serviceName].NodeIps).To(ConsistOf("192.168.1.1"))
-	g.Expect(serviceInfo[serviceName].Annotations).To(HaveKeyWithValue("key", "value"))
+	p := hostsInfo[hostname].Paths[0]
+
+	g.Expect(p.Service.Name).To(Equal(serviceName))
+	g.Expect(p.NodePort).To(Equal(30000))
+	g.Expect(p.NodeIps).To(ConsistOf("192.168.1.1"))
+	g.Expect(p.Service.Annotations).To(HaveKeyWithValue("key", "value"))
 
 	// check if service doens't have NodePort
 	service.Spec.Ports[0].NodePort = 0
 	s.listers.Service.Update(service)
 
-	serviceInfo, err = s.GetIngressServiceInfo(ingress)
-	expectedErr := errors.New("service doesn't have NodePort, only services with type 'NodePort' or 'LoadBalancer' supported")
+	_, err = s.GetIngressHostsInfo(ingress)
+	expectedErr := fmt.Errorf("service %s has no NodePort (only NodePort/LoadBalancer supported)", serviceName)
 	g.Expect(err).To(Equal(expectedErr))
 }
