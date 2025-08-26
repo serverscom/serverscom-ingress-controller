@@ -145,59 +145,77 @@ func (m *Manager) GetIds() []string {
 func (m *Manager) TranslateIngressToLB(ingress *networkv1.Ingress, sslCerts map[string]string) (*serverscom.L7LoadBalancerCreateInput, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	sInfo, err := m.store.GetIngressServiceInfo(ingress)
+
+	hostsInfo, err := m.store.GetIngressHostsInfo(ingress)
 	if err != nil {
 		return nil, err
 	}
 
-	var upstreamZones []serverscom.L7UpstreamZoneInput
-	var upstreams []serverscom.L7UpstreamInput
 	var vhostZones []serverscom.L7VHostZoneInput
-	var locationZones []serverscom.L7LocationZoneInput
 
-	for sKey, service := range sInfo {
-		sslId := ""
-		sslEnabled := false
+	upstreamMap := make(map[string]serverscom.L7UpstreamZoneInput)
+
+	for host, hInfo := range hostsInfo {
+		var locationZones []serverscom.L7LocationZoneInput
 		vhostPorts := []int32{80}
-		upstreamId := fmt.Sprintf("upstream-zone-%s", sKey)
-		for _, ip := range service.NodeIps {
-			upstreams = append(upstreams, serverscom.L7UpstreamInput{
-				IP:     ip,
-				Weight: 1,
-				Port:   int32(service.NodePort),
-			})
+		sslEnabled := false
+		sslId := ""
+
+		if id, ok := sslCerts[host]; ok {
+			sslId = id
+			sslEnabled = true
+			vhostPorts = []int32{443}
 		}
 
-		for _, host := range service.Hosts {
-			if id, ok := sslCerts[host]; ok {
-				sslId = id
-				sslEnabled = true
-				vhostPorts = []int32{443}
-			}
+		vhostAnnotations := make(map[string]string)
+		for _, p := range hInfo.Paths {
+			upstreamId := fmt.Sprintf("upstream-zone-%s-%d", p.Service.Name, p.NodePort)
+
 			locationZones = append(locationZones, serverscom.L7LocationZoneInput{
-				Location:   "/",
+				Location:   p.Path,
 				UpstreamID: upstreamId,
 			})
+
+			if _, ok := upstreamMap[upstreamId]; !ok {
+				var ups []serverscom.L7UpstreamInput
+				for _, ip := range p.NodeIps {
+					ups = append(ups, serverscom.L7UpstreamInput{
+						IP:     ip,
+						Port:   int32(p.NodePort),
+						Weight: 1,
+					})
+				}
+				upstream := serverscom.L7UpstreamZoneInput{
+					ID:        upstreamId,
+					Upstreams: ups,
+				}
+				upstream = *annotations.FillLBUpstreamZoneWithServiceAnnotations(&upstream, p.Service.Annotations)
+				upstreamMap[upstreamId] = upstream
+			}
+
+			// last-win strategy for vhost annotations
+			for k, v := range p.Service.Annotations {
+				vhostAnnotations[k] = v
+			}
 		}
 
-		vZInput := serverscom.L7VHostZoneInput{
-			ID:            fmt.Sprintf("vhost-zone-%s", sKey),
-			Domains:       service.Hosts,
+		vz := serverscom.L7VHostZoneInput{
+			ID:            fmt.Sprintf("vhost-zone-%s", host),
+			Domains:       []string{host},
 			SSLCertID:     sslId,
 			SSL:           sslEnabled,
 			Ports:         vhostPorts,
 			LocationZones: locationZones,
 		}
-		vZInput = *annotations.FillLBVHostZoneWithServiceAnnotations(&vZInput, service.Annotations)
-		vhostZones = append(vhostZones, vZInput)
-
-		uZInput := serverscom.L7UpstreamZoneInput{
-			ID:        upstreamId,
-			Upstreams: upstreams,
-		}
-		uZInput = *annotations.FillLBUpstreamZoneWithServiceAnnotations(&uZInput, service.Annotations)
-		upstreamZones = append(upstreamZones, uZInput)
+		vz = *annotations.FillLBVHostZoneWithServiceAnnotations(&vz, vhostAnnotations)
+		vhostZones = append(vhostZones, vz)
 	}
+
+	var upstreamZones []serverscom.L7UpstreamZoneInput
+	for _, u := range upstreamMap {
+		upstreamZones = append(upstreamZones, u)
+	}
+
 	if len(vhostZones) == 0 || len(upstreamZones) == 0 {
 		return nil, errors.New("vhost or upstream can't be empty, can't continue")
 	}

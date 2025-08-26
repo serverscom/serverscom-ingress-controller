@@ -57,19 +57,19 @@ func (mr *MockStorerMockRecorder) GetIngress(key any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIngress", reflect.TypeOf((*MockStorer)(nil).GetIngress), key)
 }
 
-// GetIngressServiceInfo mocks base method.
-func (m *MockStorer) GetIngressServiceInfo(ingress *v10.Ingress) (map[string]store.ServiceInfo, error) {
+// GetIngressHostsInfo mocks base method.
+func (m *MockStorer) GetIngressHostsInfo(ingress *v10.Ingress) (map[string]store.HostInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIngressServiceInfo", ingress)
-	ret0, _ := ret[0].(map[string]store.ServiceInfo)
+	ret := m.ctrl.Call(m, "GetIngressHostsInfo", ingress)
+	ret0, _ := ret[0].(map[string]store.HostInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetIngressServiceInfo indicates an expected call of GetIngressServiceInfo.
-func (mr *MockStorerMockRecorder) GetIngressServiceInfo(ingress any) *gomock.Call {
+// GetIngressHostsInfo indicates an expected call of GetIngressHostsInfo.
+func (mr *MockStorerMockRecorder) GetIngressHostsInfo(ingress any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIngressServiceInfo", reflect.TypeOf((*MockStorer)(nil).GetIngressServiceInfo), ingress)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIngressHostsInfo", reflect.TypeOf((*MockStorer)(nil).GetIngressHostsInfo), ingress)
 }
 
 // GetNodesIpList mocks base method.
